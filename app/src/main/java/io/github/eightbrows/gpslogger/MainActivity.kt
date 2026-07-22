@@ -24,6 +24,10 @@ import androidx.core.content.ContextCompat
 import io.github.eightbrows.gpslogger.service.LoggerService
 import io.github.eightbrows.gpslogger.ui.theme.GpsLoggerTheme
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,6 +100,27 @@ fun RecordControlScreen() {
         Button(onClick = { LoggerService.stop(context) }) {
             Text("記録停止")
         }
+
+        val snapshot by GnssStateHolder.snapshot.collectAsState()
+        val isLogging by GnssStateHolder.isLogging.collectAsState()
+        val trackPoints by GnssStateHolder.trackPoints.collectAsState()
+
+        Text(if (isLogging) "● 記録中" else "○ 停止中")
+
+        val loc = snapshot.location
+        if (loc != null) {
+            Text("緯度: %.7f".format(loc.latitude))
+            Text("経度: %.7f".format(loc.longitude))
+            Text("楕円体高: %.1f m".format(loc.altitude))
+            Text("水平精度: %.1f m".format(loc.accuracy))
+            Text("速度: %.2f m/s".format(loc.speed))
+            Text("方位: %.1f °".format(loc.bearing))
+            Text("記録点数: ${trackPoints.size}")
+        } else {
+            Text("測位待ち…")
+        }
+
+        Text("衛星: 使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
     }
 }
 

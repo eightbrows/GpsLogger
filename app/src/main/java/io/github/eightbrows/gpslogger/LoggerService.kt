@@ -21,6 +21,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 class LoggerService : Service() {
 
@@ -32,6 +33,7 @@ class LoggerService : Service() {
     // 測位結果を受け取る
     private val locationListener = LocationListener { location ->
         logWriter?.submit(LogEvent.Fix(location))
+        GnssStateHolder.updateLocation(location)
     }
 
     // 衛星状態を受け取る
@@ -55,6 +57,7 @@ class LoggerService : Service() {
                     )
                 )
             }
+            val epochMs = System.currentTimeMillis()
             logWriter?.submit(
                 LogEvent.Sats(
                     epochId = satEpochId++,
@@ -63,6 +66,7 @@ class LoggerService : Service() {
                     satellites = sats
                 )
             )
+            GnssStateHolder.updateSatellites(sats, epochMs)
         }
     }
 
@@ -92,6 +96,8 @@ class LoggerService : Service() {
             val sessionDir = File(getExternalFilesDir(null), sessionName)
             logWriter = LogWriter(sessionDir).also { it.start() }
             satEpochId = 0L
+            GnssStateHolder.reset()
+            GnssStateHolder.setLogging(true)
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
             stopSelf()
@@ -128,6 +134,7 @@ class LoggerService : Service() {
             logWriter = null
             isLogging = false
             Log.d(TAG, "logging stopped")
+            GnssStateHolder.setLogging(false)
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
