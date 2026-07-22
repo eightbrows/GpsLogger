@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
+import io.github.eightbrows.gpslogger.calc.DopCalculator
 
 class LoggerService : Service() {
 
@@ -30,10 +31,14 @@ class LoggerService : Service() {
     private var logWriter: LogWriter? = null
     private var satEpochId = 0L
 
+    @Volatile private var latestSats: List<LogEvent.Sat> = emptyList()
+
     // 測位結果を受け取る
     private val locationListener = LocationListener { location ->
-        logWriter?.submit(LogEvent.Fix(location))
+        val dop = DopCalculator.calculate(latestSats)
+        logWriter?.submit(LogEvent.Fix(location, dop))
         GnssStateHolder.updateLocation(location)
+        GnssStateHolder.updateDop(dop)
     }
 
     // 衛星状態を受け取る
@@ -67,6 +72,7 @@ class LoggerService : Service() {
                 )
             )
             GnssStateHolder.updateSatellites(sats, epochMs)
+            latestSats = sats
         }
     }
 

@@ -100,7 +100,16 @@ class LogWriter(private val sessionDir: File) {
         sb.append(loc.bearing).append(',')
         sb.append(loc.bearingAccuracyDegrees).append(',')
         // DOP 5種は次段で実装（今は空欄）
-        sb.append(",,,,").append(',')
+        val d = e.dop
+        if (d != null) {
+            sb.append("%.2f".format(d.gdop)).append(',')
+            sb.append("%.2f".format(d.pdop)).append(',')
+            sb.append("%.2f".format(d.hdop)).append(',')
+            sb.append("%.2f".format(d.vdop)).append(',')
+            sb.append("%.2f".format(d.tdop)).append(',')
+        } else {
+            sb.append(",,,,")  // 測位不成立・衛星不足時は空欄
+        }
         sb.append(loc.isMock)
         w.write(sb.toString())
         w.newLine()

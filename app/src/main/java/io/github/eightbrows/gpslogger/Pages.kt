@@ -108,6 +108,14 @@ private fun NumericPage() {
             Text("測位待ち…")
         }
         NumRow("衛星", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
+        val dop = snapshot.dop
+        if (dop != null) {
+            NumRow("PDOP / HDOP", "%.2f / %.2f".format(dop.pdop, dop.hdop))
+            NumRow("VDOP / TDOP", "%.2f / %.2f".format(dop.vdop, dop.tdop))
+            NumRow("GDOP", "%.2f".format(dop.gdop))
+        } else {
+            NumRow("DOP", "計算不可（衛星4個未満）")
+        }
     }
 }
 

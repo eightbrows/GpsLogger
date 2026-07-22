@@ -5,12 +5,14 @@ import io.github.eightbrows.gpslogger.log.LogEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import io.github.eightbrows.gpslogger.calc.Dop
 
 /** 時刻Tにおける位置＋その瞬間の衛星セット。UIはこれ1つで駆動される。 */
 data class GnssSnapshot(
     val location: Location? = null,
     val satellites: List<LogEvent.Sat> = emptyList(),
-    val satEpochMs: Long = 0L
+    val satEpochMs: Long = 0L,
+    val dop: Dop? = null
 ) {
     val satsInView: Int get() = satellites.size
     val satsUsed: Int get() = satellites.count { it.usedInFix }
@@ -52,4 +54,8 @@ object GnssStateHolder {
     }
 
     private const val MAX_TRACK_POINTS = 100_000  // 安全上限（1Hzで約27時間）
+
+    fun updateDop(dop: Dop?) {
+        _snapshot.value = _snapshot.value.copy(dop = dop)
+    }
 }
