@@ -28,6 +28,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.HorizontalDivider
+import io.github.eightbrows.gpslogger.ui.BottomPager
+import io.github.eightbrows.gpslogger.ui.SplitScreen
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,80 +55,71 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun RecordControlScreen() {
     val context = LocalContext.current
+    val isLogging by GnssStateHolder.isLogging.collectAsState()
 
-    // 通知許可の結果 → 許可有無に関わらず最終的にサービス起動（通知は33+のみ必須）
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) {
-        LoggerService.start(context)
-    }
+    ) { LoggerService.start(context) }
 
-    // 位置許可の結果 → 許可されたら通知許可の確認へ進む
     val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        val fineGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
-        val coarseGranted = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (fineGranted || coarseGranted) {
-            ensureNotificationThenStart(context, notificationPermissionLauncher)
-        }
-        // 拒否時は今は何もしない（次段でUI表示を整える）
+        val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarse = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fine || coarse) ensureNotificationThenStart(context, notificationPermissionLauncher)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("GPS Logger（骨組み確認）")
-
-        Button(onClick = {
-            val fineGranted = ContextCompat.checkSelfPermission(
-                context, Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-
-            if (fineGranted) {
-                // 位置が既に許可済みなら通知許可の確認へ
-                ensureNotificationThenStart(context, notificationPermissionLauncher)
-            } else {
-                // 位置許可（FINE/COARSE）をまとめてリクエスト
-                locationPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
+    Column(Modifier.fillMaxSize()) {
+        // 記録コントロール（ページの外側に固定）
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(if (isLogging) "● 記録中" else "○ 停止中")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    val fine = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (fine) ensureNotificationThenStart(context, notificationPermissionLauncher)
+                    else locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
                     )
-                )
+                }, enabled = !isLogging) { Text("開始") }
+
+                Button(
+                    onClick = { LoggerService.stop(context) },
+                    enabled = isLogging
+                ) { Text("停止") }
             }
-        }) {
-            Text("記録開始")
         }
 
-        Button(onClick = { LoggerService.stop(context) }) {
-            Text("記録停止")
-        }
+        HorizontalDivider()
 
-        val snapshot by GnssStateHolder.snapshot.collectAsState()
-        val isLogging by GnssStateHolder.isLogging.collectAsState()
-        val trackPoints by GnssStateHolder.trackPoints.collectAsState()
+        // 上下分割
+        SplitScreen(
+            top = { TrajectoryPlaceholder() },
+            bottom = { BottomPager() }
+        )
+    }
+}
 
-        Text(if (isLogging) "● 記録中" else "○ 停止中")
-
-        val loc = snapshot.location
-        if (loc != null) {
-            Text("緯度: %.7f".format(loc.latitude))
-            Text("経度: %.7f".format(loc.longitude))
-            Text("楕円体高: %.1f m".format(loc.altitude))
-            Text("水平精度: %.1f m".format(loc.accuracy))
-            Text("速度: %.2f m/s".format(loc.speed))
-            Text("方位: %.1f °".format(loc.bearing))
-            Text("記録点数: ${trackPoints.size}")
-        } else {
-            Text("測位待ち…")
-        }
-
-        Text("衛星: 使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
+@Composable
+private fun TrajectoryPlaceholder() {
+    val trackPoints by GnssStateHolder.trackPoints.collectAsState()
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("軌跡（次段で実装）  点数: ${trackPoints.size}")
     }
 }
 
