@@ -162,13 +162,6 @@ private fun SatListPage() {
     }
 }
 
-@Composable
-private fun SkyPlotPage() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("上空図（次段で実装）", color = MaterialTheme.colorScheme.outline)
-    }
-}
-
 internal fun constellationName(type: Int): String = when (type) {
     GnssStatus.CONSTELLATION_GPS -> "GPS"
     GnssStatus.CONSTELLATION_GLONASS -> "GLONASS"
