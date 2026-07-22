@@ -1,19 +1,74 @@
 package io.github.eightbrows.gpslogger.service
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.location.GnssStatus
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+
+import io.github.eightbrows.gpslogger.log.LogEvent
+import io.github.eightbrows.gpslogger.log.LogWriter
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class LoggerService : Service() {
 
+    private lateinit var locationManager: LocationManager
+    private var isLogging = false
+    private var logWriter: LogWriter? = null
+    private var satEpochId = 0L
+
+    // 測位結果を受け取る
+    private val locationListener = LocationListener { location ->
+        logWriter?.submit(LogEvent.Fix(location))
+    }
+
+    // 衛星状態を受け取る
+    private val gnssStatusCallback = object : GnssStatus.Callback() {
+        override fun onSatelliteStatusChanged(status: GnssStatus) {
+            val sats = ArrayList<LogEvent.Sat>(status.satelliteCount)
+            for (i in 0 until status.satelliteCount) {
+                sats.add(
+                    LogEvent.Sat(
+                        constellation = status.getConstellationType(i),
+                        svid = status.getSvid(i),
+                        cn0DbHz = status.getCn0DbHz(i),
+                        basebandCn0DbHz = status.getBasebandCn0DbHz(i),
+                        elevationDeg = status.getElevationDegrees(i),
+                        azimuthDeg = status.getAzimuthDegrees(i),
+                        carrierFrequencyHz = if (status.hasCarrierFrequencyHz(i))
+                            status.getCarrierFrequencyHz(i) else 0f,
+                        usedInFix = status.usedInFix(i),
+                        hasAlmanac = status.hasAlmanacData(i),
+                        hasEphemeris = status.hasEphemerisData(i)
+                    )
+                )
+            }
+            logWriter?.submit(
+                LogEvent.Sats(
+                    epochId = satEpochId++,
+                    epochMs = System.currentTimeMillis(),
+                    elapsedRealtimeNs = android.os.SystemClock.elapsedRealtimeNanos(),
+                    satellites = sats
+                )
+            )
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
+        locationManager = getSystemService(LocationManager::class.java)
         createNotificationChannel()
     }
 
@@ -22,17 +77,58 @@ class LoggerService : Service() {
             ACTION_START -> startLogging()
             ACTION_STOP -> stopLogging()
         }
-        // 強制終了後にシステムが自動再起動しない（記録は明示開始のみ）
         return START_NOT_STICKY
     }
 
+    @SuppressLint("MissingPermission") // 呼び出し側で位置許可を確認済み
     private fun startLogging() {
-        startForeground(NOTIFICATION_ID, buildNotification())
-        // TODO: 測位・衛星コールバックの登録、ライター開始（次段で実装）
+        if (isLogging) return
+
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+            // セッションフォルダを作成してライター開始
+            val sessionName = "session_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+                .format(Date())
+            val sessionDir = File(getExternalFilesDir(null), sessionName)
+            logWriter = LogWriter(sessionDir).also { it.start() }
+            satEpochId = 0L
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed", e)
+            stopSelf()
+            return
+        }
+
+        try {
+            // 測位: GPS_PROVIDER、最小間隔1秒・最小距離0m（v1既定）
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                1000L,
+                0f,
+                locationListener,
+                mainLooper
+            )
+            // 衛星状態
+            locationManager.registerGnssStatusCallback(
+                gnssStatusCallback,
+                android.os.Handler(mainLooper)
+            )
+            isLogging = true
+            Log.d(TAG, "logging started")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "location permission missing", e)
+            stopLogging()
+        }
     }
 
     private fun stopLogging() {
-        // TODO: コールバック解除、ライターの flush + close（次段で実装）
+        if (isLogging) {
+            locationManager.removeUpdates(locationListener)
+            locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+            logWriter?.stop()
+            logWriter = null
+            isLogging = false
+            Log.d(TAG, "logging stopped")
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -41,7 +137,7 @@ class LoggerService : Service() {
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("GPS記録中")
             .setContentText("記録を開始しました")
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation) // 仮アイコン。後で差し替え
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
 
@@ -49,15 +145,26 @@ class LoggerService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "記録ステータス",
-            NotificationManager.IMPORTANCE_LOW // 音を鳴らさない
+            NotificationManager.IMPORTANCE_LOW
         )
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // 想定外の破棄でもコールバックを確実に解除
+        if (isLogging) {
+            locationManager.removeUpdates(locationListener)
+            locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+            isLogging = false
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        private const val TAG = "LoggerService"
         const val ACTION_START = "io.github.eightbrows.gpslogger.START"
         const val ACTION_STOP = "io.github.eightbrows.gpslogger.STOP"
         private const val CHANNEL_ID = "logging_status"
