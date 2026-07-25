@@ -59,3 +59,20 @@ object GnssStateHolder {
         _snapshot.value = _snapshot.value.copy(dop = dop)
     }
 }
+
+/** 表示用スナップショット。ライブ・再生の両方でこれを使う。 */
+data class ViewSnapshot(
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val altitude: Double = 0.0,
+    val accuracy: Float = 0f,
+    val speed: Float = 0f,
+    val bearing: Float = 0f,
+    val satellites: List<LogEvent.Sat> = emptyList(),
+    val dop: Dop? = null,
+    val trackPoints: List<Pair<Double, Double>> = emptyList(),
+    val markerIndex: Int? = null  // 再生時の選択位置。nullなら末尾＝現在地
+) {
+    val satsInView: Int get() = satellites.size
+    val satsUsed: Int get() = satellites.count { it.usedInFix }
+}

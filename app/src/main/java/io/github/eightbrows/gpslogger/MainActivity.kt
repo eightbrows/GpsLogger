@@ -28,7 +28,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +35,19 @@ import androidx.compose.material3.HorizontalDivider
 import io.github.eightbrows.gpslogger.ui.BottomPager
 import io.github.eightbrows.gpslogger.ui.SplitScreen
 import io.github.eightbrows.gpslogger.ui.TrajectoryPane
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import io.github.eightbrows.gpslogger.session.SessionListScreen
+import io.github.eightbrows.gpslogger.state.ViewSnapshot
+import io.github.eightbrows.gpslogger.session.ReplayScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,7 +58,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    RecordControlScreen()
+                    AppRoot()
                 }
             }
         }
@@ -57,6 +69,22 @@ class MainActivity : ComponentActivity() {
 fun RecordControlScreen() {
     val context = LocalContext.current
     val isLogging by GnssStateHolder.isLogging.collectAsState()
+    val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
+    val trackPoints by GnssStateHolder.trackPoints.collectAsState()
+
+    // ライブの状態を表示用スナップショットに詰め替える
+    val viewSnapshot = ViewSnapshot(
+        latitude = holderSnapshot.location?.latitude,
+        longitude = holderSnapshot.location?.longitude,
+        altitude = holderSnapshot.location?.altitude ?: 0.0,
+        accuracy = holderSnapshot.location?.accuracy ?: 0f,
+        speed = holderSnapshot.location?.speed ?: 0f,
+        bearing = holderSnapshot.location?.bearing ?: 0f,
+        satellites = holderSnapshot.satellites,
+        dop = holderSnapshot.dop,
+        trackPoints = trackPoints,
+        markerIndex = null
+    )
 
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -71,7 +99,7 @@ fun RecordControlScreen() {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // 記録コントロール（ページの外側に固定）
+        // 記録コントロール
         Row(
             Modifier
                 .fillMaxWidth()
@@ -81,18 +109,21 @@ fun RecordControlScreen() {
         ) {
             Text(if (isLogging) "● 記録中" else "○ 停止中")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
-                    val fine = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (fine) ensureNotificationThenStart(context, notificationPermissionLauncher)
-                    else locationPermissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
+                Button(
+                    onClick = {
+                        val fine = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (fine) ensureNotificationThenStart(context, notificationPermissionLauncher)
+                        else locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
                         )
-                    )
-                }, enabled = !isLogging) { Text("開始") }
+                    },
+                    enabled = !isLogging
+                ) { Text("開始") }
 
                 Button(
                     onClick = { LoggerService.stop(context) },
@@ -105,8 +136,8 @@ fun RecordControlScreen() {
 
         // 上下分割
         SplitScreen(
-            top = { TrajectoryPane() },
-            bottom = { BottomPager() }
+            top = { TrajectoryPane(viewSnapshot) },
+            bottom = { BottomPager(viewSnapshot) }
         )
     }
 }
@@ -128,5 +159,50 @@ private fun ensureNotificationThenStart(
         }
     } else {
         LoggerService.start(context)
+    }
+}
+
+private enum class Tab { RECORD, REPLAY }
+
+@Composable
+fun AppRoot() {
+    var tab by remember { mutableStateOf(Tab.RECORD) }
+    var selectedSession by remember { mutableStateOf<java.io.File?>(null) }
+
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            when (tab) {
+                Tab.RECORD -> RecordControlScreen()
+                Tab.REPLAY -> {
+                    val session = selectedSession
+                    if (session == null) {
+                        SessionListScreen(onSelect = { selectedSession = it })
+                    } else {
+                        ReplayScreen(
+                            sessionDir = session,
+                            onBack = { selectedSession = null }
+                        )
+                    }
+                }
+            }
+        }
+
+        NavigationBar {
+            NavigationBarItem(
+                selected = tab == Tab.RECORD,
+                onClick = { tab = Tab.RECORD },
+                icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                label = { Text("記録") }
+            )
+            NavigationBarItem(
+                selected = tab == Tab.REPLAY,
+                onClick = {
+                    tab = Tab.REPLAY
+                    selectedSession = null  // タブ切替で一覧に戻す
+                },
+                icon = { Icon(Icons.Filled.History, contentDescription = null) },
+                label = { Text("再生") }
+            )
+        }
     }
 }

@@ -16,8 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -28,10 +26,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.log.LogEvent
-import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import io.github.eightbrows.gpslogger.state.ViewSnapshot
 
 /** コンステレーション別の色 */
 fun constellationColor(type: Int): Color = when (type) {
@@ -46,8 +44,7 @@ fun constellationColor(type: Int): Color = when (type) {
 }
 
 @Composable
-fun SkyPlotPage() {
-    val snapshot by GnssStateHolder.snapshot.collectAsState()
+fun SkyPlotPage(snapshot: ViewSnapshot) {
     val sats = snapshot.satellites
 
     Column(Modifier.fillMaxSize()) {

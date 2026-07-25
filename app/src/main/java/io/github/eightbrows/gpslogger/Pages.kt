@@ -19,31 +19,26 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.eightbrows.gpslogger.log.LogEvent
-import io.github.eightbrows.gpslogger.state.GnssStateHolder
+import io.github.eightbrows.gpslogger.state.ViewSnapshot
 
 @Composable
-fun BottomPager() {
+fun BottomPager(snapshot: ViewSnapshot) {
     val pagerState = rememberPagerState(pageCount = { 3 })
 
     Column(Modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
+            modifier = Modifier.fillMaxWidth().weight(1f)
         ) { page ->
             when (page) {
-                0 -> NumericPage()
-                1 -> SatListPage()
-                2 -> SkyPlotPage()
+                0 -> NumericPage(snapshot)
+                1 -> SatListPage(snapshot)
+                2 -> SkyPlotPage(snapshot)
             }
         }
 
@@ -84,37 +79,31 @@ fun BottomPager() {
 }
 
 @Composable
-private fun NumericPage() {
-    val snapshot by GnssStateHolder.snapshot.collectAsState()
-    val trackPoints by GnssStateHolder.trackPoints.collectAsState()
-    val loc = snapshot.location
-
+private fun NumericPage(snapshot: ViewSnapshot) {
     Column(
-        Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (loc != null) {
-            NumRow("緯度", "%.7f".format(loc.latitude))
-            NumRow("経度", "%.7f".format(loc.longitude))
-            NumRow("楕円体高", "%.1f m".format(loc.altitude))
-            NumRow("水平精度", "%.1f m".format(loc.accuracy))
-            NumRow("垂直精度", "%.1f m".format(loc.verticalAccuracyMeters))
-            NumRow("速度", "%.2f m/s".format(loc.speed))
-            NumRow("方位", "%.1f °".format(loc.bearing))
-            NumRow("記録点数", "${trackPoints.size}")
+        if (snapshot.latitude != null && snapshot.longitude != null) {
+            NumRow("緯度", "%.7f".format(snapshot.latitude))
+            NumRow("経度", "%.7f".format(snapshot.longitude))
+            NumRow("楕円体高", "%.1f m".format(snapshot.altitude))
+            NumRow("水平精度", "%.1f m".format(snapshot.accuracy))
+            NumRow("速度", "%.2f m/s".format(snapshot.speed))
+            NumRow("方位", "%.1f °".format(snapshot.bearing))
+            NumRow("記録点数", "${snapshot.trackPoints.size}")
         } else {
             Text("測位待ち…")
         }
         NumRow("衛星", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
+
         val dop = snapshot.dop
         if (dop != null) {
             NumRow("PDOP / HDOP", "%.2f / %.2f".format(dop.pdop, dop.hdop))
             NumRow("VDOP / TDOP", "%.2f / %.2f".format(dop.vdop, dop.tdop))
             NumRow("GDOP", "%.2f".format(dop.gdop))
         } else {
-            NumRow("DOP", "計算不可（衛星4個未満）")
+            NumRow("DOP", "—")
         }
     }
 }
@@ -128,11 +117,8 @@ private fun NumRow(label: String, value: String) {
 }
 
 @Composable
-private fun SatListPage() {
-    val snapshot by GnssStateHolder.snapshot.collectAsState()
-    val sats = snapshot.satellites.sortedWith(
-        compareBy({ it.constellation }, { it.svid })
-    )
+private fun SatListPage(snapshot: ViewSnapshot) {
+    val sats = snapshot.satellites.sortedWith(compareBy({ it.constellation }, { it.svid }))
 
     Column(Modifier.fillMaxSize()) {
         // ヘッダ

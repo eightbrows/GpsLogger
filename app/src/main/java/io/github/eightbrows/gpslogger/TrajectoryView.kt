@@ -12,7 +12,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,15 +27,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
-import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
+import io.github.eightbrows.gpslogger.state.ViewSnapshot
 
 @Composable
-fun TrajectoryPane(modifier: Modifier = Modifier) {
-    val points by GnssStateHolder.trackPoints.collectAsState()
+fun TrajectoryPane(
+    snapshot: ViewSnapshot,
+    modifier: Modifier = Modifier
+) {
+    val points = snapshot.trackPoints
     val lineColor = MaterialTheme.colorScheme.primary
     val currentColor = MaterialTheme.colorScheme.error
     val startColor = MaterialTheme.colorScheme.outline
@@ -128,7 +130,15 @@ fun TrajectoryPane(modifier: Modifier = Modifier) {
                 }
 
                 drawCircle(startColor, 4.dp.toPx(), screenPoints.first())
-                drawCircle(currentColor, 5.dp.toPx(), screenPoints.last())
+
+                // 選択位置があればそこ、なければ末尾（現在地）
+                val markerIdx = snapshot.markerIndex
+                val markerPos = if (markerIdx != null && markerIdx in points.indices) {
+                    toScreen(points[markerIdx].first, points[markerIdx].second)
+                } else {
+                    screenPoints.last()
+                }
+                drawCircle(currentColor, 5.dp.toPx(), markerPos)
             }
 
             Text(
