@@ -71,6 +71,8 @@ fun RecordControlScreen() {
     val isLogging by GnssStateHolder.isLogging.collectAsState()
     val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
+    val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
+    var reviewing by remember { mutableStateOf(false) }
 
     // ライブの状態を表示用スナップショットに詰め替える
     val viewSnapshot = ViewSnapshot(
@@ -98,47 +100,62 @@ fun RecordControlScreen() {
         if (fine || coarse) ensureNotificationThenStart(context, notificationPermissionLauncher)
     }
 
-    Column(Modifier.fillMaxSize()) {
-        // 記録コントロール
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(if (isLogging) "● 記録中" else "○ 停止中")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = {
-                        val fine = ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.ACCESS_FINE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (fine) ensureNotificationThenStart(context, notificationPermissionLauncher)
-                        else locationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    },
-                    enabled = !isLogging
-                ) { Text("開始") }
+    val session = currentSession
 
-                Button(
-                    onClick = { LoggerService.stop(context) },
-                    enabled = isLogging
-                ) { Text("停止") }
-            }
-        }
-
-        HorizontalDivider()
-
-        // 上下分割
-        SplitScreen(
-            top = { TrajectoryPane(viewSnapshot) },
-            bottom = { BottomPager(viewSnapshot) }
+    if (reviewing && session != null) {
+        // レビュー中: 記録は裏で継続したまま、現セッションを再生画面で開く
+        ReplayScreen(
+            sessionDir = session,
+            onBack = { reviewing = false }
         )
+    } else {
+        Column(Modifier.fillMaxSize()) {
+            // 記録コントロール
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(if (isLogging) "● 記録中" else "○ 停止中")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            val fine = ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
+                            if (fine) ensureNotificationThenStart(context, notificationPermissionLauncher)
+                            else locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        },
+                        enabled = !isLogging
+                    ) { Text("開始") }
+
+                    Button(
+                        onClick = { LoggerService.stop(context) },
+                        enabled = isLogging
+                    ) { Text("停止") }
+
+                    Button(
+                        onClick = { reviewing = true },
+                        enabled = isLogging && session != null
+                    ) { Text("レビュー") }
+                }
+            }
+
+            HorizontalDivider()
+
+            // 上下分割
+            SplitScreen(
+                top = { TrajectoryPane(viewSnapshot) },
+                bottom = { BottomPager(viewSnapshot) }
+            )
+        }
     }
 }
 

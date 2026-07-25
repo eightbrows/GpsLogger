@@ -100,6 +100,7 @@ class LoggerService : Service() {
             val sessionName = "session_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
                 .format(Date())
             val sessionDir = File(getExternalFilesDir(null), sessionName)
+            GnssStateHolder.setCurrentSession(sessionDir)
             logWriter = LogWriter(sessionDir).also { it.start() }
             satEpochId = 0L
             GnssStateHolder.reset()
@@ -141,6 +142,7 @@ class LoggerService : Service() {
             isLogging = false
             Log.d(TAG, "logging stopped")
             GnssStateHolder.setLogging(false)
+            GnssStateHolder.setCurrentSession(null)
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
