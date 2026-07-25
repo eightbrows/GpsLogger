@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.HorizontalDivider
 import io.github.eightbrows.gpslogger.ui.BottomPager
 import io.github.eightbrows.gpslogger.ui.SplitScreen
+import io.github.eightbrows.gpslogger.ui.TrajectoryPane
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,24 +105,12 @@ fun RecordControlScreen() {
 
         // 上下分割
         SplitScreen(
-            top = { TrajectoryPlaceholder() },
+            top = { TrajectoryPane() },
             bottom = { BottomPager() }
         )
     }
 }
 
-@Composable
-private fun TrajectoryPlaceholder() {
-    val trackPoints by GnssStateHolder.trackPoints.collectAsState()
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("軌跡（次段で実装）  点数: ${trackPoints.size}")
-    }
-}
 
 // 通知許可（Android 13+）を確認・要求してからサービスを起動するヘルパ
 private fun ensureNotificationThenStart(
