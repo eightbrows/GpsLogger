@@ -48,10 +48,14 @@ import androidx.compose.runtime.setValue
 import io.github.eightbrows.gpslogger.session.SessionListScreen
 import io.github.eightbrows.gpslogger.state.ViewSnapshot
 import io.github.eightbrows.gpslogger.session.ReplayScreen
+import io.github.eightbrows.gpslogger.settings.Settings
+import androidx.compose.material.icons.filled.Settings
+import io.github.eightbrows.gpslogger.settings.SettingsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Settings.init(this)
         setContent {
             GpsLoggerTheme {
                 Surface(
@@ -179,7 +183,7 @@ private fun ensureNotificationThenStart(
     }
 }
 
-private enum class Tab { RECORD, REPLAY }
+private enum class Tab { RECORD, REPLAY, SETTINGS }
 
 @Composable
 fun AppRoot() {
@@ -201,6 +205,7 @@ fun AppRoot() {
                         )
                     }
                 }
+                Tab.SETTINGS -> SettingsScreen()
             }
         }
 
@@ -219,6 +224,12 @@ fun AppRoot() {
                 },
                 icon = { Icon(Icons.Filled.History, contentDescription = null) },
                 label = { Text("再生") }
+            )
+            NavigationBarItem(
+                selected = tab == Tab.SETTINGS,
+                onClick = { tab = Tab.SETTINGS },
+                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                label = { Text("設定") }
             )
         }
     }

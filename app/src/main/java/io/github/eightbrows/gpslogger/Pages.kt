@@ -25,6 +25,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.state.ViewSnapshot
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import io.github.eightbrows.gpslogger.settings.CoordFormatter
+import io.github.eightbrows.gpslogger.settings.Settings
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
@@ -80,13 +84,15 @@ fun BottomPager(snapshot: ViewSnapshot) {
 
 @Composable
 private fun NumericPage(snapshot: ViewSnapshot) {
+    val coordFormat by Settings.coordFormat.collectAsState()
+
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         if (snapshot.latitude != null && snapshot.longitude != null) {
-            NumRow("緯度", "%.7f".format(snapshot.latitude))
-            NumRow("経度", "%.7f".format(snapshot.longitude))
+            NumRow("緯度", CoordFormatter.latitude(snapshot.latitude, coordFormat))
+            NumRow("経度", CoordFormatter.longitude(snapshot.longitude, coordFormat))
             NumRow("楕円体高", "%.1f m".format(snapshot.altitude))
             NumRow("水平精度", "%.1f m".format(snapshot.accuracy))
             NumRow("速度", "%.2f m/s".format(snapshot.speed))

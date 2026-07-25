@@ -23,6 +23,7 @@ import java.util.Date
 import java.util.Locale
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import io.github.eightbrows.gpslogger.calc.DopCalculator
+import io.github.eightbrows.gpslogger.settings.Settings
 
 class LoggerService : Service() {
 
@@ -30,6 +31,7 @@ class LoggerService : Service() {
     private var isLogging = false
     private var logWriter: LogWriter? = null
     private var satEpochId = 0L
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     @Volatile private var latestSats: List<LogEvent.Sat> = emptyList()
 
@@ -62,17 +64,17 @@ class LoggerService : Service() {
                     )
                 )
             }
+            latestSats = sats
             val epochMs = System.currentTimeMillis()
             logWriter?.submit(
                 LogEvent.Sats(
                     epochId = satEpochId++,
-                    epochMs = System.currentTimeMillis(),
+                    epochMs = epochMs,
                     elapsedRealtimeNs = android.os.SystemClock.elapsedRealtimeNanos(),
                     satellites = sats
                 )
             )
             GnssStateHolder.updateSatellites(sats, epochMs)
-            latestSats = sats
         }
     }
 
@@ -115,7 +117,7 @@ class LoggerService : Service() {
             // 測位: GPS_PROVIDER、最小間隔1秒・最小距離0m（v1既定）
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
-                1000L,
+                Settings.intervalSec.value * 1000L,
                 0f,
                 locationListener,
                 mainLooper
@@ -126,6 +128,14 @@ class LoggerService : Service() {
                 android.os.Handler(mainLooper)
             )
             isLogging = true
+            if (Settings.useWakeLock.value) {
+                val pm = getSystemService(android.os.PowerManager::class.java)
+                wakeLock = pm.newWakeLock(
+                    android.os.PowerManager.PARTIAL_WAKE_LOCK,
+                    "GpsLogger::LoggingWakeLock"
+                ).also { it.acquire() }
+                Log.d(TAG, "wakelock acquired")
+            }
             Log.d(TAG, "logging started")
         } catch (e: SecurityException) {
             Log.e(TAG, "location permission missing", e)
@@ -137,6 +147,8 @@ class LoggerService : Service() {
         if (isLogging) {
             locationManager.removeUpdates(locationListener)
             locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+            wakeLock?.let { if (it.isHeld) it.release() }
+            wakeLock = null
             logWriter?.stop()
             logWriter = null
             isLogging = false
@@ -174,6 +186,8 @@ class LoggerService : Service() {
             locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
             isLogging = false
         }
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
