@@ -1,10 +1,13 @@
 package io.github.eightbrows.gpslogger.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -25,13 +28,20 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
+import io.github.eightbrows.gpslogger.state.ViewSnapshot
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
-import io.github.eightbrows.gpslogger.state.ViewSnapshot
+
+private const val MIN_ZOOM = 0.1f
+private const val MAX_ZOOM = 200f
+
+/** 描画時に算出した追従位置を、ジェスチャ処理へ渡すための入れ物（状態ではない） */
+private class TrajViewState {
+    var followTx = 0f
+    var followTy = 0f
+}
 
 @Composable
 fun TrajectoryPane(
@@ -43,23 +53,18 @@ fun TrajectoryPane(
     val currentColor = MaterialTheme.colorScheme.error
     val startColor = MaterialTheme.colorScheme.outline
 
-    // ズーム倍率と、追従解除中の平行移動量（px）
     var zoom by remember { mutableFloatStateOf(1f) }
-    var panX by remember { mutableFloatStateOf(0f) }
-    var panY by remember { mutableFloatStateOf(0f) }
-    // 追従ON = 常に全体を自動フィット
+    // 平行移動量（追従OFF時の唯一の基準）
+    var tx by remember { mutableFloatStateOf(0f) }
+    var ty by remember { mutableFloatStateOf(0f) }
     var following by remember { mutableStateOf(true) }
+    val view = remember { TrajViewState() }
 
     Box(modifier.fillMaxSize()) {
         if (points.size < 2) {
-            // 軌跡が無い場合: 現在地だけを中央に表示
             if (snapshot.latitude != null && snapshot.longitude != null) {
                 Canvas(Modifier.fillMaxSize()) {
-                    drawCircle(
-                        currentColor,
-                        6.dp.toPx(),
-                        androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
-                    )
+                    drawCircle(currentColor, 6.dp.toPx(), Offset(size.width / 2f, size.height / 2f))
                 }
                 Text(
                     "測位中（記録なし）",
@@ -80,16 +85,42 @@ fun TrajectoryPane(
                     .fillMaxSize()
                     .padding(12.dp)
                     .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, gestureZoom, _ ->
-                            // 触った時点で追従解除
-                            following = false
-                            zoom = (zoom * gestureZoom).coerceIn(0.5f, 50f)
-                            panX += pan.x
-                            panY += pan.y
+                        detectTransformGestures { centroid, pan, gestureZoom, _ ->
+                            // ズーム: 指の中心を固定して拡大縮小
+                            if (gestureZoom != 1f) {
+                                val newZoom = (zoom * gestureZoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
+                                val k = newZoom / zoom
+                                if (!following) {
+                                    tx = centroid.x - (centroid.x - tx) * k
+                                    ty = centroid.y - (centroid.y - ty) * k
+                                }
+                                zoom = newZoom
+                            }
+                            // 移動: 追従を解除し、その瞬間の見た目を引き継ぐ
+                            if (abs(pan.x) > 0.5f || abs(pan.y) > 0.5f) {
+                                if (following) {
+                                    tx = view.followTx
+                                    ty = view.followTy
+                                    following = false
+                                }
+                                tx += pan.x
+                                ty += pan.y
+                            }
                         }
                     }
+                    .pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = { p ->
+                            val newZoom = (zoom * 2f).coerceIn(MIN_ZOOM, MAX_ZOOM)
+                            val k = newZoom / zoom
+                            if (!following) {
+                                tx = p.x - (p.x - tx) * k
+                                ty = p.y - (p.y - ty) * k
+                            }
+                            zoom = newZoom
+                        })
+                    }
             ) {
-                // バウンディングボックス
+                // 外接矩形
                 var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
                 var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
                 points.forEach { (lat, lon) ->
@@ -104,22 +135,25 @@ fun TrajectoryPane(
                 val spanLat = max(maxLat - minLat, 1e-7)
                 val spanLon = max((maxLon - minLon) * lonScale, 1e-7)
 
-                // 全体フィットの基準スケール
                 val baseScale = minOf(size.width / spanLon, size.height / spanLat).toFloat()
                 val scale = baseScale * zoom
 
-                val drawW = (spanLon * scale).toFloat()
-                val drawH = (spanLat * scale).toFloat()
-                val offsetX = (size.width - drawW) / 2f + panX
-                val offsetY = (size.height - drawH) / 2f + panY
+                // 注目点（ライブ=現在地 / 再生=マーカー）を画面中央に置くための平行移動量
+                val focus = snapshot.markerIndex?.let { points.getOrNull(it) } ?: points.last()
+                val fwx = ((focus.second - minLon) * lonScale * scale).toFloat()
+                val fwy = ((maxLat - focus.first) * scale).toFloat()
+                view.followTx = size.width / 2f - fwx
+                view.followTy = size.height / 2f - fwy
 
-                fun toScreen(lat: Double, lon: Double): Offset {
-                    val x = offsetX + ((lon - minLon) * lonScale * scale).toFloat()
-                    val y = offsetY + drawH - ((lat - minLat) * scale).toFloat()
-                    return Offset(x, y)
-                }
+                val ox = if (following) view.followTx else tx
+                val oy = if (following) view.followTy else ty
 
-                // 縮尺連動の間引き（ズームすると自然に点が増える）
+                fun toScreen(lat: Double, lon: Double): Offset = Offset(
+                    ox + ((lon - minLon) * lonScale * scale).toFloat(),
+                    oy + ((maxLat - lat) * scale).toFloat()
+                )
+
+                // 縮尺連動の間引き
                 val minPixelGap = 2.dp.toPx()
                 val screenPoints = ArrayList<Offset>(points.size)
                 var last: Offset? = null
@@ -147,15 +181,7 @@ fun TrajectoryPane(
                 }
 
                 drawCircle(startColor, 4.dp.toPx(), screenPoints.first())
-
-                // 選択位置があればそこ、なければ末尾（現在地）
-                val markerIdx = snapshot.markerIndex
-                val markerPos = if (markerIdx != null && markerIdx in points.indices) {
-                    toScreen(points[markerIdx].first, points[markerIdx].second)
-                } else {
-                    screenPoints.last()
-                }
-                drawCircle(currentColor, 5.dp.toPx(), markerPos)
+                drawCircle(currentColor, 5.dp.toPx(), toScreen(focus.first, focus.second))
             }
 
             Text(
@@ -165,7 +191,6 @@ fun TrajectoryPane(
                 color = MaterialTheme.colorScheme.outline
             )
 
-            // 兼用追従ボタン: ON=塗り / OFF=輪郭（タップで現在地へ戻り追従再開）
             Box(
                 Modifier
                     .align(Alignment.BottomEnd)
@@ -173,18 +198,13 @@ fun TrajectoryPane(
             ) {
                 if (following) {
                     FilledIconButton(
-                        onClick = { /* 追従中は何もしない */ },
+                        onClick = { },
                         colors = IconButtonDefaults.filledIconButtonColors()
                     ) {
                         Icon(Icons.Filled.LocationOn, contentDescription = "追従中")
                     }
                 } else {
-                    OutlinedIconButton(onClick = {
-                        following = true
-                        zoom = 1f
-                        panX = 0f
-                        panY = 0f
-                    }) {
+                    OutlinedIconButton(onClick = { following = true }) {
                         Icon(Icons.Filled.LocationOn, contentDescription = "現在地へ戻る")
                     }
                 }
