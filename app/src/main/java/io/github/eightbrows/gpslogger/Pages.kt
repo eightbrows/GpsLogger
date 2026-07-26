@@ -148,11 +148,29 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 3.dp)
+                        .padding(horizontal = 12.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(constellationName(sat.constellation), Modifier.weight(1.4f), fontSize = 12.sp)
+                    Row(Modifier.weight(1.4f), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(6.dp)
+                                .background(constellationColor(sat.constellation), CircleShape)
+                        )
+                        Text(" " + constellationName(sat.constellation), fontSize = 12.sp)
+                    }
                     Text("${sat.svid}", Modifier.weight(0.7f), fontSize = 12.sp)
-                    Text("%.0f".format(sat.cn0DbHz), Modifier.weight(1f), fontSize = 12.sp, textAlign = TextAlign.End)
+                    Text(
+                        "%.0f".format(sat.cn0DbHz),
+                        Modifier.weight(1f),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.End,
+                        color = when {
+                            sat.cn0DbHz >= 40f -> MaterialTheme.colorScheme.primary
+                            sat.cn0DbHz >= 25f -> MaterialTheme.colorScheme.onSurface
+                            else -> MaterialTheme.colorScheme.error
+                        }
+                    )
                     Text("%.0f".format(sat.elevationDeg), Modifier.weight(1f), fontSize = 12.sp, textAlign = TextAlign.End)
                     Text("%.0f".format(sat.azimuthDeg), Modifier.weight(1f), fontSize = 12.sp, textAlign = TextAlign.End)
                     Text(if (sat.usedInFix) "●" else "", Modifier.weight(0.7f), fontSize = 12.sp, textAlign = TextAlign.End)
