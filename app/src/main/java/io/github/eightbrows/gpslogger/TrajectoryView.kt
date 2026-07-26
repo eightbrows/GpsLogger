@@ -52,11 +52,28 @@ fun TrajectoryPane(
 
     Box(modifier.fillMaxSize()) {
         if (points.size < 2) {
-            Text(
-                "測位待ち…（点数 ${points.size}）",
-                Modifier.align(Alignment.Center),
-                color = MaterialTheme.colorScheme.outline
-            )
+            // 軌跡が無い場合: 現在地だけを中央に表示
+            if (snapshot.latitude != null && snapshot.longitude != null) {
+                Canvas(Modifier.fillMaxSize()) {
+                    drawCircle(
+                        currentColor,
+                        6.dp.toPx(),
+                        androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+                    )
+                }
+                Text(
+                    "測位中（記録なし）",
+                    Modifier.align(Alignment.TopStart).padding(8.dp),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            } else {
+                Text(
+                    "測位待ち…",
+                    Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
         } else {
             Canvas(
                 Modifier

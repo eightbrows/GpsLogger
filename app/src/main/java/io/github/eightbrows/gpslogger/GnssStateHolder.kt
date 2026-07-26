@@ -47,6 +47,11 @@ object GnssStateHolder {
         }
     }
 
+    /** 記録せず測位だけしている時の更新（軌跡には積まない） */
+    fun updateLocationPreviewOnly(location: Location) {
+        _snapshot.value = _snapshot.value.copy(location = location)
+    }
+
     fun updateSatellites(sats: List<LogEvent.Sat>, epochMs: Long) {
         _snapshot.value = _snapshot.value.copy(satellites = sats, satEpochMs = epochMs)
     }

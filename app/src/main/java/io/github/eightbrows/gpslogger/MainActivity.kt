@@ -51,6 +51,7 @@ import io.github.eightbrows.gpslogger.session.ReplayScreen
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.material.icons.filled.Settings
 import io.github.eightbrows.gpslogger.settings.SettingsScreen
+import io.github.eightbrows.gpslogger.state.PreviewLocator
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +106,21 @@ fun RecordControlScreen() {
     }
 
     val session = currentSession
+
+    // 記録タブ表示中かつ記録していない間はプレビュー測位を動かす
+    androidx.compose.runtime.DisposableEffect(isLogging) {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!isLogging && hasPermission) {
+            PreviewLocator.start(context)
+        } else {
+            PreviewLocator.stop()
+        }
+
+        onDispose { PreviewLocator.stop() }
+    }
 
     if (reviewing && session != null) {
         // レビュー中: 記録は裏で継続したまま、現セッションを再生画面で開く
