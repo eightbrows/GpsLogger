@@ -33,6 +33,9 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 
 private const val MIN_ZOOM = 0.1f
 private const val MAX_ZOOM = 200f
@@ -62,6 +65,20 @@ fun TrajectoryPane(
     var ty by remember { mutableFloatStateOf(0f) }
     var following by remember { mutableStateOf(true) }
     val view = remember { TrajViewState() }
+
+    // 画面中心をアンカーにしたズーム（ボタン用）
+    var canvasSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+    fun applyZoom(factor: Float) {
+        val newZoom = (zoom * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
+        val k = newZoom / zoom
+        if (!following && canvasSize != androidx.compose.ui.geometry.Size.Zero) {
+            val cx = canvasSize.width / 2f
+            val cy = canvasSize.height / 2f
+            tx = cx - (cx - tx) * k
+            ty = cy - (cy - ty) * k
+        }
+        zoom = newZoom
+    }
 
     Box(modifier.fillMaxSize()) {
         if (points.size < 2) {
@@ -123,6 +140,8 @@ fun TrajectoryPane(
                         })
                     }
             ) {
+                canvasSize = size
+
                 // 外接矩形
                 var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
                 var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
@@ -220,11 +239,18 @@ fun TrajectoryPane(
                 color = MaterialTheme.colorScheme.outline
             )
 
-            Box(
+            // ズーム操作＋追従ボタン
+            Column(
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(12.dp)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                SmallZoomButton("＋") { applyZoom(2f) }
+                SmallZoomButton("－") { applyZoom(0.5f) }
+                SmallZoomButton("1x") { zoom = 1f; following = true }
+
                 if (following) {
                     FilledIconButton(
                         onClick = { },
@@ -239,5 +265,15 @@ fun TrajectoryPane(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SmallZoomButton(label: String, onClick: () -> Unit) {
+    OutlinedIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(36.dp)
+    ) {
+        Text(label, fontSize = 13.sp)
     }
 }

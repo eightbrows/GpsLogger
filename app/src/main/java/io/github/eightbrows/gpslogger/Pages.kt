@@ -29,6 +29,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import io.github.eightbrows.gpslogger.settings.CoordFormatter
 import io.github.eightbrows.gpslogger.settings.Settings
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
@@ -87,8 +89,11 @@ private fun NumericPage(snapshot: ViewSnapshot) {
     val coordFormat by Settings.coordFormat.collectAsState()
 
     Column(
-        Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp)
     ) {
         if (snapshot.latitude != null && snapshot.longitude != null) {
             NumRow("緯度", CoordFormatter.latitude(snapshot.latitude, coordFormat))
@@ -99,7 +104,7 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             NumRow("方位", "%.1f °".format(snapshot.bearing))
             NumRow("記録点数", "${snapshot.trackPoints.size}")
         } else {
-            Text("測位待ち…")
+            Text("測位待ち…", fontSize = 13.sp)
         }
         NumRow("衛星", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
 
@@ -116,9 +121,9 @@ private fun NumericPage(snapshot: ViewSnapshot) {
 
 @Composable
 private fun NumRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth()) {
-        Text(label, Modifier.weight(1f), fontSize = 13.sp)
-        Text(value, fontSize = 13.sp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+        Text(label, Modifier.weight(1f), fontSize = 13.sp, lineHeight = 15.sp)
+        Text(value, fontSize = 13.sp, lineHeight = 15.sp)
     }
 }
 
@@ -148,7 +153,7 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 3.dp),
+                        .padding(horizontal = 12.dp, vertical = 1.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(Modifier.weight(1.4f), verticalAlignment = Alignment.CenterVertically) {
@@ -157,13 +162,14 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                                 .size(6.dp)
                                 .background(constellationColor(sat.constellation), CircleShape)
                         )
-                        Text(" " + constellationName(sat.constellation), fontSize = 12.sp)
+                        Text(" " + constellationName(sat.constellation), fontSize = 12.sp, lineHeight = 13.sp)
                     }
-                    Text("${sat.svid}", Modifier.weight(0.7f), fontSize = 12.sp)
+                    Text("${sat.svid}", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 13.sp)
                     Text(
                         "%.0f".format(sat.cn0DbHz),
                         Modifier.weight(1f),
                         fontSize = 12.sp,
+                        lineHeight = 13.sp,
                         textAlign = TextAlign.End,
                         color = when {
                             sat.cn0DbHz >= 40f -> MaterialTheme.colorScheme.primary
@@ -171,9 +177,9 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                             else -> MaterialTheme.colorScheme.error
                         }
                     )
-                    Text("%.0f".format(sat.elevationDeg), Modifier.weight(1f), fontSize = 12.sp, textAlign = TextAlign.End)
-                    Text("%.0f".format(sat.azimuthDeg), Modifier.weight(1f), fontSize = 12.sp, textAlign = TextAlign.End)
-                    Text(if (sat.usedInFix) "●" else "", Modifier.weight(0.7f), fontSize = 12.sp, textAlign = TextAlign.End)
+                    Text("%.0f".format(sat.elevationDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 13.sp, textAlign = TextAlign.End)
+                    Text("%.0f".format(sat.azimuthDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 13.sp, textAlign = TextAlign.End)
+                    Text(if (sat.usedInFix) "●" else "", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 13.sp, textAlign = TextAlign.End)
                 }
             }
         }
