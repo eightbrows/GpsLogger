@@ -50,6 +50,7 @@ import io.github.eightbrows.gpslogger.state.ViewSnapshot
 import io.github.eightbrows.gpslogger.session.ReplayScreen
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.settings.SettingsScreen
 import io.github.eightbrows.gpslogger.state.PreviewLocator
 
@@ -78,6 +79,11 @@ fun RecordControlScreen() {
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
     var reviewing by remember { mutableStateOf(false) }
+
+    val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsState()
+    // 最後の測位から5秒以内ならFIX中とみなす
+    val hasFix = lastFixNs > 0 &&
+            (android.os.SystemClock.elapsedRealtimeNanos() - lastFixNs) < 5_000_000_000L
 
     // ライブの状態を表示用スナップショットに詰め替える
     val viewSnapshot = ViewSnapshot(
@@ -138,7 +144,15 @@ fun RecordControlScreen() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(if (isLogging) "● 記録中" else "○ 停止中")
+                Column {
+                    Text(if (isLogging) "● 記録中" else "○ 停止中", fontSize = 13.sp)
+                    Text(
+                        if (hasFix) "FIX" else "NO FIX",
+                        fontSize = 13.sp,
+                        color = if (hasFix) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = {

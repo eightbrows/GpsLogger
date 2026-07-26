@@ -33,6 +33,16 @@ class LoggerService : Service() {
     private var satEpochId = 0L
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
+    private var startTimeMs = 0L
+    private var fixCount = 0
+    private var notificationHandler: android.os.Handler? = null
+    private val notificationUpdater = object : Runnable {
+        override fun run() {
+            updateNotification()
+            notificationHandler?.postDelayed(this, 1000L)
+        }
+    }
+
     @Volatile private var latestSats: List<LogEvent.Sat> = emptyList()
 
     // 測位結果を受け取る
@@ -41,6 +51,7 @@ class LoggerService : Service() {
         logWriter?.submit(LogEvent.Fix(location, dop))
         GnssStateHolder.updateLocation(location)
         GnssStateHolder.updateDop(dop)
+        fixCount++
     }
 
     // 衛星状態を受け取る
@@ -97,6 +108,9 @@ class LoggerService : Service() {
         if (isLogging) return
 
         try {
+            startTimeMs = System.currentTimeMillis()
+            fixCount = 0
+
             startForeground(NOTIFICATION_ID, buildNotification())
             // セッションフォルダを作成してライター開始
             val sessionName = "session_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
@@ -128,6 +142,9 @@ class LoggerService : Service() {
                 android.os.Handler(mainLooper)
             )
             isLogging = true
+            notificationHandler = android.os.Handler(mainLooper).also {
+                it.postDelayed(notificationUpdater, 1000L)
+            }
             if (Settings.useWakeLock.value) {
                 val pm = getSystemService(android.os.PowerManager::class.java)
                 wakeLock = pm.newWakeLock(
@@ -147,6 +164,8 @@ class LoggerService : Service() {
         if (isLogging) {
             locationManager.removeUpdates(locationListener)
             locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+            notificationHandler?.removeCallbacks(notificationUpdater)
+            notificationHandler = null
             wakeLock?.let { if (it.isHeld) it.release() }
             wakeLock = null
             logWriter?.stop()
@@ -160,13 +179,40 @@ class LoggerService : Service() {
         stopSelf()
     }
 
-    private fun buildNotification(): Notification =
-        NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("GPS記録中")
-            .setContentText("記録を開始しました")
+    private fun buildNotification(): Notification {
+        // タップでアプリに戻る
+        val intent = Intent(this, io.github.eightbrows.gpslogger.MainActivity::class.java)
+            .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this, 0, intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                    android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val elapsedSec = if (startTimeMs > 0)
+            (System.currentTimeMillis() - startTimeMs) / 1000 else 0
+        val h = elapsedSec / 3600
+        val m = (elapsedSec % 3600) / 60
+        val s = elapsedSec % 60
+        val elapsed = "%02d:%02d:%02d".format(h, m, s)
+
+        val usedSats = latestSats.count { it.usedInFix }
+        val fixState = if (usedSats >= 4) "FIX" else "NO FIX"
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("GPS記録中  $elapsed")
+            .setContentText("$fixState ・ ${fixCount}点 ・ 衛星 $usedSats")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
+            .setContentIntent(pendingIntent)
+            .setOnlyAlertOnce(true)
             .build()
+    }
+
+    private fun updateNotification() {
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification())
+    }
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -184,6 +230,8 @@ class LoggerService : Service() {
         if (isLogging) {
             locationManager.removeUpdates(locationListener)
             locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+            notificationHandler?.removeCallbacks(notificationUpdater)
+            notificationHandler = null
             isLogging = false
         }
         wakeLock?.let { if (it.isHeld) it.release() }

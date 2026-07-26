@@ -16,6 +16,7 @@ data class GnssSnapshot(
 ) {
     val satsInView: Int get() = satellites.size
     val satsUsed: Int get() = satellites.count { it.usedInFix }
+    val hasFix: Boolean get() = location != null
 }
 
 /** サービスが書き、UIが読む。シングルトン。 */
@@ -45,11 +46,13 @@ object GnssStateHolder {
         if (points.size < MAX_TRACK_POINTS) {
             _trackPoints.value = points + (location.latitude to location.longitude)
         }
+        _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
     }
 
     /** 記録せず測位だけしている時の更新（軌跡には積まない） */
     fun updateLocationPreviewOnly(location: Location) {
         _snapshot.value = _snapshot.value.copy(location = location)
+        _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
     }
 
     fun updateSatellites(sats: List<LogEvent.Sat>, epochMs: Long) {
@@ -71,6 +74,9 @@ object GnssStateHolder {
     fun updateDop(dop: Dop?) {
         _snapshot.value = _snapshot.value.copy(dop = dop)
     }
+
+    private val _lastFixElapsedNs = MutableStateFlow(0L)
+    val lastFixElapsedNs: StateFlow<Long> = _lastFixElapsedNs.asStateFlow()
 }
 
 /** 表示用スナップショット。ライブ・再生の両方でこれを使う。 */
@@ -88,4 +94,6 @@ data class ViewSnapshot(
 ) {
     val satsInView: Int get() = satellites.size
     val satsUsed: Int get() = satellites.count { it.usedInFix }
+
+    val hasFix: Boolean get() = latitude != null && longitude != null
 }
