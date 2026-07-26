@@ -53,6 +53,9 @@ fun TrajectoryPane(
     val currentColor = MaterialTheme.colorScheme.error
     val startColor = MaterialTheme.colorScheme.outline
 
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    val labelColor = MaterialTheme.colorScheme.outline
+
     var zoom by remember { mutableFloatStateOf(1f) }
     // 平行移動量（追従OFF時の唯一の基準）
     var tx by remember { mutableFloatStateOf(0f) }
@@ -153,6 +156,24 @@ fun TrajectoryPane(
                     oy + ((maxLat - lat) * scale).toFloat()
                 )
 
+                // 画面座標 → 緯度経度（グリッドの範囲計算に使う）
+                fun screenToLat(y: Float): Double = maxLat - (y - oy) / scale
+                fun screenToLon(x: Float): Double = minLon + (x - ox) / (lonScale * scale)
+
+                // 背景グリッド（軌跡より先に描く）
+                MapGrid.drawGrid(
+                    scope = this,
+                    gridColor = gridColor,
+                    labelColor = labelColor,
+                    scale = scale,
+                    lonScale = lonScale,
+                    centerLat = centerLat,
+                    toScreen = ::toScreen,
+                    screenToLat = ::screenToLat,
+                    screenToLon = ::screenToLon,
+                    labelTextSizePx = 9.dp.toPx()
+                )
+
                 // 縮尺連動の間引き
                 val minPixelGap = 2.dp.toPx()
                 val screenPoints = ArrayList<Offset>(points.size)
@@ -182,6 +203,14 @@ fun TrajectoryPane(
 
                 drawCircle(startColor, 4.dp.toPx(), screenPoints.first())
                 drawCircle(currentColor, 5.dp.toPx(), toScreen(focus.first, focus.second))
+
+                MapGrid.drawScaleBar(
+                    scope = this,
+                    barColor = labelColor,
+                    scale = scale,
+                    labelTextSizePx = 9.dp.toPx(),
+                    bottomMarginPx = 16.dp.toPx()
+                )
             }
 
             Text(
