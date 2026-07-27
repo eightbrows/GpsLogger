@@ -93,7 +93,7 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp)
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         if (snapshot.latitude != null && snapshot.longitude != null) {
             NumRow("緯度", CoordFormatter.latitude(snapshot.latitude, coordFormat))
@@ -110,9 +110,8 @@ private fun NumericPage(snapshot: ViewSnapshot) {
 
         val dop = snapshot.dop
         if (dop != null) {
-            NumRow("PDOP / HDOP", "%.2f / %.2f".format(dop.pdop, dop.hdop))
-            NumRow("VDOP / TDOP", "%.2f / %.2f".format(dop.vdop, dop.tdop))
-            NumRow("GDOP", "%.2f".format(dop.gdop))
+            NumRow("PDOP/VDOP/HDOP", "%.2f / %.2f / %.2f".format(dop.pdop, dop.vdop, dop.hdop))
+            NumRow("GDOP/TDOP", "%.2f / %.2f".format(dop.gdop, dop.tdop))
         } else {
             NumRow("DOP", "—")
         }
@@ -121,9 +120,9 @@ private fun NumericPage(snapshot: ViewSnapshot) {
 
 @Composable
 private fun NumRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-        Text(label, Modifier.weight(1f), fontSize = 13.sp, lineHeight = 15.sp)
-        Text(value, fontSize = 13.sp, lineHeight = 15.sp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
+        Text(label, Modifier.weight(1f), fontSize = 13.sp, lineHeight = 14.sp)
+        Text(value, fontSize = 13.sp, lineHeight = 14.sp)
     }
 }
 
@@ -153,7 +152,7 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 1.dp),
+                        .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(Modifier.weight(1.4f), verticalAlignment = Alignment.CenterVertically) {
@@ -162,14 +161,14 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                                 .size(6.dp)
                                 .background(constellationColor(sat.constellation), CircleShape)
                         )
-                        Text(" " + constellationName(sat.constellation), fontSize = 12.sp, lineHeight = 13.sp)
+                        Text(" " + constellationName(sat.constellation), fontSize = 12.sp, lineHeight = 12.sp)
                     }
-                    Text("${sat.svid}", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 13.sp)
+                    Text("${sat.svid}", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 12.sp)
                     Text(
                         "%.0f".format(sat.cn0DbHz),
                         Modifier.weight(1f),
                         fontSize = 12.sp,
-                        lineHeight = 13.sp,
+                        lineHeight = 12.sp,
                         textAlign = TextAlign.End,
                         color = when {
                             sat.cn0DbHz >= 40f -> MaterialTheme.colorScheme.primary
@@ -177,9 +176,9 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                             else -> MaterialTheme.colorScheme.error
                         }
                     )
-                    Text("%.0f".format(sat.elevationDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 13.sp, textAlign = TextAlign.End)
-                    Text("%.0f".format(sat.azimuthDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 13.sp, textAlign = TextAlign.End)
-                    Text(if (sat.usedInFix) "●" else "", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 13.sp, textAlign = TextAlign.End)
+                    Text("%.0f".format(sat.elevationDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                    Text("%.0f".format(sat.azimuthDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                    Text(if (sat.usedInFix) "●" else "", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
                 }
             }
         }

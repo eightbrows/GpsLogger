@@ -228,13 +228,13 @@ fun TrajectoryPane(
                     barColor = labelColor,
                     scale = scale,
                     labelTextSizePx = 9.dp.toPx(),
-                    bottomMarginPx = 16.dp.toPx()
+                    topMarginPx = 14.dp.toPx()   // ← ここを調整
                 )
             }
 
             Text(
                 "点数 ${points.size}  ×%.1f".format(zoom),
-                Modifier.align(Alignment.TopStart).padding(8.dp),
+                Modifier.align(Alignment.TopCenter).padding(vertical = 4.dp),
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -242,14 +242,14 @@ fun TrajectoryPane(
             // ズーム操作＋追従ボタン
             Column(
                 Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp),
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 SmallZoomButton("＋") { applyZoom(2f) }
                 SmallZoomButton("－") { applyZoom(0.5f) }
-                SmallZoomButton("1x") { zoom = 1f; following = true }
+                SmallZoomButton("1x") { applyZoom(1f / zoom) }
 
                 if (following) {
                     FilledIconButton(
@@ -272,7 +272,7 @@ fun TrajectoryPane(
 private fun SmallZoomButton(label: String, onClick: () -> Unit) {
     OutlinedIconButton(
         onClick = onClick,
-        modifier = Modifier.size(36.dp)
+        modifier = Modifier.size(40.dp)
     ) {
         Text(label, fontSize = 13.sp)
     }

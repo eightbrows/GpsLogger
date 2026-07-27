@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun SettingsScreen() {
@@ -38,14 +39,24 @@ fun SettingsScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SectionTitle("記録間隔")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionTitle("記録間隔（秒）")
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Settings.intervalOptions.forEach { sec ->
                 FilterChip(
                     selected = intervalSec == sec,
                     onClick = { Settings.setIntervalSec(sec) },
-                    label = { Text("${sec}秒") },
-                    enabled = !isLogging
+                    label = {
+                        Text(
+                            "$sec",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    },
+                    enabled = !isLogging,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }

@@ -178,7 +178,7 @@ fun RecordControlScreen() {
                     Button(
                         onClick = { reviewing = true },
                         enabled = isLogging && session != null
-                    ) { Text("レビュー") }
+                    ) { Text("記録確認") }
                 }
             }
 

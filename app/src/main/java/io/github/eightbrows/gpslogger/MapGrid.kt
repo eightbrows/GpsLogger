@@ -96,20 +96,18 @@ object MapGrid {
         }
     }
 
-    /** スケールバーを左下に描く */
+    /** スケールバーを右上に描く */
     fun drawScaleBar(
         scope: DrawScope,
         barColor: Color,
-        scale: Float,          // 緯度1度あたりのピクセル数
+        scale: Float,
         labelTextSizePx: Float,
-        bottomMarginPx: Float
+        topMarginPx: Float
     ) = with(scope) {
-        // 緯度1度 ≒ 111,320 m
         val metersPerPx = 111_320.0 / scale
         val targetPx = size.width * 0.25
         val roughMeters = metersPerPx * targetPx
 
-        // 1, 2, 5 の系列でキリの良い距離を選ぶ
         val exp = floor(kotlin.math.log10(roughMeters))
         val base = Math.pow(10.0, exp)
         val niceMeters = when {
@@ -124,20 +122,24 @@ object MapGrid {
         val label = if (niceMeters >= 1000) "%.0f km".format(niceMeters / 1000)
         else "%.0f m".format(niceMeters)
 
-        val y = size.height - bottomMarginPx
-        val x0 = 12f
-        val strokeW = 2.dp.toPx()
-        val tick = 4.dp.toPx()
-
-        drawLine(barColor, Offset(x0, y), Offset(x0 + barPx, y), strokeW)
-        drawLine(barColor, Offset(x0, y - tick), Offset(x0, y + tick), strokeW)
-        drawLine(barColor, Offset(x0 + barPx, y - tick), Offset(x0 + barPx, y + tick), strokeW)
-
         val paint = android.graphics.Paint().apply {
             color = barColor.toArgb()
             textSize = labelTextSizePx
             isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.RIGHT
         }
-        drawContext.canvas.nativeCanvas.drawText(label, x0, y - tick - 4f, paint)
+
+        // 右端から左へ伸ばす
+        val x1 = size.width - 8f
+        val x0 = x1 - barPx
+        val y = topMarginPx
+        val strokeW = 2.dp.toPx()
+        val tick = 4.dp.toPx()
+
+        drawLine(barColor, Offset(x0, y), Offset(x1, y), strokeW)
+        drawLine(barColor, Offset(x0, y - tick), Offset(x0, y + tick), strokeW)
+        drawLine(barColor, Offset(x1, y - tick), Offset(x1, y + tick), strokeW)
+
+        drawContext.canvas.nativeCanvas.drawText(label, x1, y - tick - 3f, paint)
     }
 }

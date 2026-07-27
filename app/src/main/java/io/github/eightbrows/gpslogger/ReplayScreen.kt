@@ -112,7 +112,11 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                     ) {
-                        Slider(value = position, onValueChange = { position = it })
+                        Slider(
+                            value = position,
+                            onValueChange = { position = it },
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
