@@ -31,6 +31,7 @@ import io.github.eightbrows.gpslogger.settings.CoordFormatter
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import io.github.eightbrows.gpslogger.calc.GpsTime
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
@@ -87,6 +88,7 @@ fun BottomPager(snapshot: ViewSnapshot) {
 @Composable
 private fun NumericPage(snapshot: ViewSnapshot) {
     val coordFormat by Settings.coordFormat.collectAsState()
+    val leapSeconds by Settings.leapSeconds.collectAsState()
 
     Column(
         Modifier
@@ -95,9 +97,20 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
+        // 時刻
+        if (snapshot.timeMs > 0) {
+            NumRow("UTC", formatUtc(snapshot.timeMs))
+            NumRow("Local", formatLocal(snapshot.timeMs))
+
+            val gps = GpsTime.fromUtcMillis(snapshot.timeMs, leapSeconds)
+            NumRow("WN / TOW", "${gps.week} / %.1f".format(gps.tow))
+        } else {
+            NumRow("時刻", "—")
+        }
+
         if (snapshot.latitude != null && snapshot.longitude != null) {
-            NumRow("緯度", CoordFormatter.latitude(snapshot.latitude, coordFormat))
-            NumRow("経度", CoordFormatter.longitude(snapshot.longitude, coordFormat))
+            NumRow("緯度", CoordFormatter.latitudeBoth(snapshot.latitude, coordFormat))
+            NumRow("経度", CoordFormatter.longitudeBoth(snapshot.longitude, coordFormat))
             NumRow("楕円体高", "%.1f m".format(snapshot.altitude))
             NumRow("水平精度", "%.1f m".format(snapshot.accuracy))
             NumRow("速度", "%.2f m/s".format(snapshot.speed))
@@ -110,19 +123,27 @@ private fun NumericPage(snapshot: ViewSnapshot) {
 
         val dop = snapshot.dop
         if (dop != null) {
-            NumRow("PDOP/VDOP/HDOP", "%.2f / %.2f / %.2f".format(dop.pdop, dop.vdop, dop.hdop))
-            NumRow("GDOP/TDOP", "%.2f / %.2f".format(dop.gdop, dop.tdop))
+            NumRow("DOP(P/V/H)", "%.2f / %.2f / %.2f".format(dop.pdop, dop.vdop, dop.hdop))
+            NumRow("DOP(G/T)", "%.2f / %.2f".format(dop.gdop, dop.tdop))
         } else {
             NumRow("DOP", "—")
         }
     }
 }
 
+private val utcFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).apply {
+    timeZone = java.util.TimeZone.getTimeZone("UTC")
+}
+private val localFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+
+private fun formatUtc(ms: Long): String = utcFormat.format(java.util.Date(ms))
+private fun formatLocal(ms: Long): String = localFormat.format(java.util.Date(ms))
+
 @Composable
 private fun NumRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
-        Text(label, Modifier.weight(1f), fontSize = 13.sp, lineHeight = 14.sp)
-        Text(value, fontSize = 13.sp, lineHeight = 14.sp)
+    Row(Modifier.fillMaxWidth()) {
+        Text(label, Modifier.weight(0.8f), fontSize = 13.sp, lineHeight = 14.sp)
+        Text(value, Modifier.weight(2.2f), fontSize = 13.sp, lineHeight = 14.sp)
     }
 }
 

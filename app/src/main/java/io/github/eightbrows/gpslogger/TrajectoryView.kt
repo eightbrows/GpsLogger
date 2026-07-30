@@ -36,6 +36,9 @@ import kotlin.math.max
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.collectAsState
+import io.github.eightbrows.gpslogger.settings.CoordFormat
+import io.github.eightbrows.gpslogger.settings.Settings
 
 private const val MIN_ZOOM = 0.1f
 private const val MAX_ZOOM = 200f
@@ -58,6 +61,8 @@ fun TrajectoryPane(
 
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val labelColor = MaterialTheme.colorScheme.outline
+
+    val coordFormat by Settings.coordFormat.collectAsState()
 
     var zoom by remember { mutableFloatStateOf(1f) }
     // 平行移動量（追従OFF時の唯一の基準）
@@ -190,7 +195,8 @@ fun TrajectoryPane(
                     toScreen = ::toScreen,
                     screenToLat = ::screenToLat,
                     screenToLon = ::screenToLon,
-                    labelTextSizePx = 9.dp.toPx()
+                    labelTextSizePx = 9.dp.toPx(),
+                    dms = (coordFormat == CoordFormat.DMS)
                 )
 
                 // 縮尺連動の間引き

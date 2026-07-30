@@ -27,4 +27,15 @@ object CoordFormatter {
         val sec = (minFull - min) * 60.0
         return "%d°%02d'%05.2f\"%s".format(deg, min, sec, hemisphere)
     }
+
+    /** 度と度分秒を1行で併記。設定に応じて主従を入れ替える */
+    fun latitudeBoth(value: Double, format: CoordFormat): String = when (format) {
+        CoordFormat.DECIMAL -> "%.7f (%s)".format(value, toDms(value, "N", "S"))
+        CoordFormat.DMS -> "%s (%.7f)".format(toDms(value, "N", "S"), value)
+    }
+
+    fun longitudeBoth(value: Double, format: CoordFormat): String = when (format) {
+        CoordFormat.DECIMAL -> "%.7f (%s)".format(value, toDms(value, "E", "W"))
+        CoordFormat.DMS -> "%s (%.7f)".format(toDms(value, "E", "W"), value)
+    }
 }

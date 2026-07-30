@@ -96,6 +96,7 @@ fun RecordControlScreen() {
         satellites = holderSnapshot.satellites,
         dop = holderSnapshot.dop,
         trackPoints = trackPoints,
+        timeMs = holderSnapshot.location?.time ?: 0L,
         markerIndex = null
     )
 

@@ -90,6 +90,7 @@ data class ViewSnapshot(
     val satellites: List<LogEvent.Sat> = emptyList(),
     val dop: Dop? = null,
     val trackPoints: List<Pair<Double, Double>> = emptyList(),
+    val timeMs: Long = 0L,
     val markerIndex: Int? = null  // 再生時の選択位置。nullなら末尾＝現在地
 ) {
     val satsInView: Int get() = satellites.size

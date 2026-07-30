@@ -95,6 +95,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     satellites = satEpoch?.satellites ?: emptyList(),
                     dop = record.dop,
                     trackPoints = track.map { it.latitude to it.longitude },
+                    timeMs = record.epochMs,
                     markerIndex = index
                 )
 

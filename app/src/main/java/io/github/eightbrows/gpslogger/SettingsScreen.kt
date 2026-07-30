@@ -24,6 +24,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.layout.width
 
 @Composable
 fun SettingsScreen() {
@@ -113,6 +120,39 @@ fun SettingsScreen() {
                 checked = useWakeLock,
                 onCheckedChange = { Settings.setUseWakeLock(it) },
                 enabled = !isLogging
+            )
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        SectionTitle("GPS時刻")
+        val leapSeconds by Settings.leapSeconds.collectAsState()
+        var leapText by remember(leapSeconds) { mutableStateOf(leapSeconds.toString()) }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("うるう秒（GPS - UTC）", fontSize = 14.sp)
+                Text(
+                    "Z-countの算出に使用します",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            OutlinedTextField(
+                value = leapText,
+                onValueChange = { input ->
+                    if (input.length <= 2 && input.all { it.isDigit() }) {
+                        leapText = input
+                        input.toIntOrNull()?.let { Settings.setLeapSeconds(it) }
+                    }
+                },
+                modifier = Modifier.width(72.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
         }
 

@@ -24,13 +24,29 @@ object MapGrid {
         return STEPS.minByOrNull { kotlin.math.abs(it - target) } ?: 0.01
     }
 
-    /** 度数の表示（ステップに応じて小数桁を変える） */
-    private fun formatDeg(value: Double, step: Double): String = when {
-        step >= 1.0 -> "%.0f".format(value)
-        step >= 0.1 -> "%.1f".format(value)
-        step >= 0.01 -> "%.2f".format(value)
-        step >= 0.001 -> "%.3f".format(value)
-        else -> "%.4f".format(value)
+    /** 度数の表示。DMS指定時は簡易的な度分秒に */
+    private fun formatDeg(value: Double, step: Double, dms: Boolean): String {
+        if (!dms) {
+            return when {
+                step >= 1.0 -> "%.0f".format(value)
+                step >= 0.1 -> "%.1f".format(value)
+                step >= 0.01 -> "%.2f".format(value)
+                step >= 0.001 -> "%.3f".format(value)
+                else -> "%.4f".format(value)
+            }
+        }
+        // 度分秒（グリッドラベルなので簡潔に）
+        val a = kotlin.math.abs(value)
+        val deg = floor(a).toInt()
+        val minFull = (a - deg) * 60.0
+        val min = floor(minFull).toInt()
+        val sec = (minFull - min) * 60.0
+        val sign = if (value < 0) "-" else ""
+        return when {
+            step >= 1.0 -> "$sign$deg°"
+            step >= 1.0 / 60 -> "$sign$deg°%02d'".format(min)
+            else -> "$sign$deg°%02d'%04.1f\"".format(min, sec)
+        }
     }
 
     /**
@@ -48,7 +64,8 @@ object MapGrid {
         toScreen: (Double, Double) -> Offset,
         screenToLat: (Float) -> Double,
         screenToLon: (Float) -> Double,
-        labelTextSizePx: Float
+        labelTextSizePx: Float,
+        dms: Boolean
     ) = with(scope) {
         // 画面に映っている緯度経度の範囲
         val topLat = screenToLat(0f)
@@ -76,7 +93,7 @@ object MapGrid {
             if (y >= 0f && y <= size.height) {
                 drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeW)
                 drawContext.canvas.nativeCanvas.drawText(
-                    formatDeg(lat, latStep), 4f, y - 4f, paint
+                    formatDeg(lat, latStep, dms), 4f, y - 4f, paint
                 )
             }
             lat += latStep
@@ -89,7 +106,7 @@ object MapGrid {
             if (x >= 0f && x <= size.width) {
                 drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), strokeW)
                 drawContext.canvas.nativeCanvas.drawText(
-                    formatDeg(lon, lonStep), x + 4f, size.height - 4f, paint
+                    formatDeg(lon, lonStep, dms), x + 4f, size.height - 4f, paint
                 )
             }
             lon += lonStep

@@ -25,6 +25,8 @@ object Settings {
     private val _splitRatio = MutableStateFlow(0.5f)
     val splitRatio: StateFlow<Float> = _splitRatio.asStateFlow()
 
+    private const val KEY_LEAP_SECONDS = "leap_seconds"
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext
@@ -35,6 +37,7 @@ object Settings {
             prefs.getString(KEY_COORD_FORMAT, CoordFormat.DECIMAL.name)!!
         )
         _splitRatio.value = prefs.getFloat(KEY_SPLIT_RATIO, 0.5f)
+        _leapSeconds.value = prefs.getInt(KEY_LEAP_SECONDS, 18)
     }
 
     fun setIntervalSec(sec: Int) {
@@ -57,6 +60,11 @@ object Settings {
         prefs.edit().putFloat(KEY_SPLIT_RATIO, ratio).apply()
     }
 
+    fun setLeapSeconds(sec: Int) {
+        _leapSeconds.value = sec
+        prefs.edit().putInt(KEY_LEAP_SECONDS, sec).apply()
+    }
+
     /** 選択可能な記録間隔（秒） */
     val intervalOptions = listOf(1, 2, 4, 8, 16, 32)
 
@@ -64,4 +72,7 @@ object Settings {
     private const val KEY_WAKELOCK = "use_wakelock"
     private const val KEY_COORD_FORMAT = "coord_format"
     private const val KEY_SPLIT_RATIO = "split_ratio"
+
+    private val _leapSeconds = MutableStateFlow(18)
+    val leapSeconds: StateFlow<Int> = _leapSeconds.asStateFlow()
 }
