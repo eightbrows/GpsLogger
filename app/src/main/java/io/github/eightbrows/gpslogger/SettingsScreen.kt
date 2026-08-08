@@ -31,6 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun SettingsScreen() {
@@ -125,6 +131,24 @@ fun SettingsScreen() {
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
+        SectionTitle("軌跡の色")
+        val recordingColor by Settings.recordingColor.collectAsState()
+        val previewColor by Settings.previewColor.collectAsState()
+
+        Text("記録中", fontSize = 13.sp)
+        ColorPicker(
+            selected = recordingColor,
+            onSelect = { Settings.setRecordingColor(it) }
+        )
+
+        Text("プレビュー中", fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+        ColorPicker(
+            selected = previewColor,
+            onSelect = { Settings.setPreviewColor(it) }
+        )
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
         SectionTitle("GPS時刻")
         val leapSeconds by Settings.leapSeconds.collectAsState()
         var leapText by remember(leapSeconds) { mutableStateOf(leapSeconds.toString()) }
@@ -137,7 +161,7 @@ fun SettingsScreen() {
             Column(Modifier.weight(1f)) {
                 Text("うるう秒（GPS - UTC）", fontSize = 14.sp)
                 Text(
-                    "Z-countの算出に使用します",
+                    "Z-countの算出に使用します（初期値：18）",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -175,4 +199,26 @@ private fun SectionTitle(text: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 4.dp)
     )
+}
+
+@Composable
+private fun ColorPicker(selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Settings.trackColorOptions.forEach { color ->
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .background(Color(color), CircleShape)
+                    .border(
+                        width = if (selected == color) 3.dp else 0.dp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        shape = CircleShape
+                    )
+                    .clickable { onSelect(color) }
+            )
+        }
+    }
 }

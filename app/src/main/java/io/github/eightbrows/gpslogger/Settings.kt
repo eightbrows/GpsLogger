@@ -27,6 +27,12 @@ object Settings {
 
     private const val KEY_LEAP_SECONDS = "leap_seconds"
 
+    private val _recordingColor = MutableStateFlow(DEFAULT_RECORDING_COLOR)
+    val recordingColor: StateFlow<Int> = _recordingColor.asStateFlow()
+
+    private val _previewColor = MutableStateFlow(DEFAULT_PREVIEW_COLOR)
+    val previewColor: StateFlow<Int> = _previewColor.asStateFlow()
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext
@@ -38,6 +44,9 @@ object Settings {
         )
         _splitRatio.value = prefs.getFloat(KEY_SPLIT_RATIO, 0.5f)
         _leapSeconds.value = prefs.getInt(KEY_LEAP_SECONDS, 18)
+
+        _recordingColor.value = prefs.getInt(KEY_RECORDING_COLOR, DEFAULT_RECORDING_COLOR)
+        _previewColor.value = prefs.getInt(KEY_PREVIEW_COLOR, DEFAULT_PREVIEW_COLOR)
     }
 
     fun setIntervalSec(sec: Int) {
@@ -75,4 +84,31 @@ object Settings {
 
     private val _leapSeconds = MutableStateFlow(18)
     val leapSeconds: StateFlow<Int> = _leapSeconds.asStateFlow()
+
+    fun setRecordingColor(color: Int) {
+        _recordingColor.value = color
+        prefs.edit().putInt(KEY_RECORDING_COLOR, color).apply()
+    }
+
+    fun setPreviewColor(color: Int) {
+        _previewColor.value = color
+        prefs.edit().putInt(KEY_PREVIEW_COLOR, color).apply()
+    }
+
+    /** 軌跡色の選択肢 */
+    val trackColorOptions = listOf(
+        0xFFE91E63.toInt(),  // ピンク
+        0xFF00BCD4.toInt(),  // 水色
+        0xFF4CAF50.toInt(),  // 緑
+        0xFFFF9800.toInt(),  // 橙
+        0xFF9C27B0.toInt(),  // 紫
+        0xFF2196F3.toInt(),  // 青
+        0xFFF44336.toInt(),  // 赤
+        0xFF9E9E9E.toInt()   // グレー
+    )
+
+    private const val DEFAULT_RECORDING_COLOR = 0xFFE91E63.toInt()  // ピンク
+    private const val DEFAULT_PREVIEW_COLOR = 0xFF00BCD4.toInt()    // 水色
+    private const val KEY_RECORDING_COLOR = "recording_color"
+    private const val KEY_PREVIEW_COLOR = "preview_color"
 }

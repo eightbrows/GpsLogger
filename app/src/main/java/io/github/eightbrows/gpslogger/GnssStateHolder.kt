@@ -53,6 +53,11 @@ object GnssStateHolder {
     fun updateLocationPreviewOnly(location: Location) {
         _snapshot.value = _snapshot.value.copy(location = location)
         _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
+
+        val points = _trackPoints.value
+        if (points.size < MAX_TRACK_POINTS) {
+            _trackPoints.value = points + (location.latitude to location.longitude)
+        }
     }
 
     fun updateSatellites(sats: List<LogEvent.Sat>, epochMs: Long) {
@@ -91,7 +96,8 @@ data class ViewSnapshot(
     val dop: Dop? = null,
     val trackPoints: List<Pair<Double, Double>> = emptyList(),
     val timeMs: Long = 0L,
-    val markerIndex: Int? = null  // 再生時の選択位置。nullなら末尾＝現在地
+    val markerIndex: Int? = null,  // 再生時の選択位置。nullなら末尾＝現在地
+    val isRecording: Boolean = false
 ) {
     val satsInView: Int get() = satellites.size
     val satsUsed: Int get() = satellites.count { it.usedInFix }

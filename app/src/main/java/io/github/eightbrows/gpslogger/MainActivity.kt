@@ -97,7 +97,8 @@ fun RecordControlScreen() {
         dop = holderSnapshot.dop,
         trackPoints = trackPoints,
         timeMs = holderSnapshot.location?.time ?: 0L,
-        markerIndex = null
+        markerIndex = null,
+        isRecording = isLogging
     )
 
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(

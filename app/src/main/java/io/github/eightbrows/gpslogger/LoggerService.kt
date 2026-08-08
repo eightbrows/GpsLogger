@@ -174,6 +174,7 @@ class LoggerService : Service() {
             Log.d(TAG, "logging stopped")
             GnssStateHolder.setLogging(false)
             GnssStateHolder.setCurrentSession(null)
+            GnssStateHolder.reset()
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
