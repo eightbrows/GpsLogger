@@ -6,10 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +28,11 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 import io.github.eightbrows.gpslogger.state.ViewSnapshot
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 
 /** コンステレーション別の色 */
 fun constellationColor(type: Int): Color = when (type) {
@@ -47,16 +50,126 @@ fun constellationColor(type: Int): Color = when (type) {
 fun SkyPlotPage(snapshot: ViewSnapshot) {
     val sats = snapshot.satellites
 
-    Column(Modifier.fillMaxSize()) {
+    Row(
+        Modifier
+            .fillMaxSize()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 左: 系統別の捕捉状況
+        ConstellationStats(
+            sats,
+            snapshot.dop,
+            Modifier
+                .width(96.dp)
+                .fillMaxHeight()
+        )
+
+        // 右: 配置図
         Box(
             Modifier
-                .fillMaxWidth()
-                .weight(1f),
+                .weight(1f)
+                .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
-            SkyPlot(sats, Modifier.fillMaxSize().padding(8.dp))
+            SkyPlot(sats, Modifier.fillMaxSize())
         }
-        Legend(sats)
+    }
+}
+
+@Composable
+private fun ConstellationStats(
+    sats: List<LogEvent.Sat>,
+    dop: io.github.eightbrows.gpslogger.calc.Dop?,
+    modifier: Modifier = Modifier
+) {
+    val order = listOf(
+        GnssStatus.CONSTELLATION_GPS,
+        GnssStatus.CONSTELLATION_GLONASS,
+        GnssStatus.CONSTELLATION_GALILEO,
+        GnssStatus.CONSTELLATION_BEIDOU,
+        GnssStatus.CONSTELLATION_QZSS,
+        GnssStatus.CONSTELLATION_SBAS,
+        GnssStatus.CONSTELLATION_IRNSS
+    )
+    val present = order.filter { type -> sats.any { it.constellation == type } }
+
+    Column(
+        modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        val totalUsed = sats.count { it.usedInFix }
+        Text(
+            "使用 $totalUsed / 可視 ${sats.size}",
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        HorizontalDivider(Modifier.padding(vertical = 3.dp))
+
+        present.forEach { type ->
+            val used = sats.count { it.constellation == type && it.usedInFix }
+            val total = sats.count { it.constellation == type }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(7.dp)
+                        .background(constellationColor(type), CircleShape)
+                )
+                Text(
+                    " ${constellationName(type)}",
+                    Modifier.weight(1f),
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp
+                )
+                Text(
+                    "$used/$total",
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (present.isEmpty()) {
+            Text(
+                "衛星なし",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+
+        // DOP（常に5行表示、未計算時は "—"）
+        HorizontalDivider(Modifier.padding(vertical = 3.dp))
+        DopRow("DOP(P)", dop?.pdop)
+        DopRow("DOP(V)", dop?.vdop)
+        DopRow("DOP(H)", dop?.hdop)
+        DopRow("DOP(G)", dop?.gdop)
+        DopRow("DOP(T)", dop?.tdop)
+    }
+}
+
+@Composable
+private fun DopRow(label: String, value: Double?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            Modifier.weight(1f),
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            if (value != null) "%.2f".format(value) else "—",
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
+            color = when {
+                value == null -> MaterialTheme.colorScheme.outline
+                value <= 2.0 -> MaterialTheme.colorScheme.primary
+                value <= 5.0 -> MaterialTheme.colorScheme.onSurface
+                else -> MaterialTheme.colorScheme.error
+            }
+        )
     }
 }
 
@@ -133,36 +246,6 @@ private fun SkyPlot(sats: List<LogEvent.Sat>, modifier: Modifier = Modifier) {
             drawContext.canvas.nativeCanvas.drawText(
                 sat.svid.toString(), x, y - dotR - 2.dp.toPx(), svidPaint
             )
-        }
-    }
-}
-
-@Composable
-private fun Legend(sats: List<LogEvent.Sat>) {
-    val present = sats.map { it.constellation }.distinct().sorted()
-    if (present.isEmpty()) return
-
-    FlowRow(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        present.forEach { type ->
-            val used = sats.count { it.constellation == type && it.usedInFix }
-            val total = sats.count { it.constellation == type }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(7.dp)
-                        .background(constellationColor(type), CircleShape)
-                )
-                Text(
-                    " ${constellationName(type)} $used/$total",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }

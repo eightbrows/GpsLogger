@@ -90,6 +90,11 @@ private fun NumericPage(snapshot: ViewSnapshot) {
     val coordFormat by Settings.coordFormat.collectAsState()
     val leapSeconds by Settings.leapSeconds.collectAsState()
 
+    val hasTime = snapshot.timeMs > 0
+    val hasPos = snapshot.latitude != null && snapshot.longitude != null
+    val gps = if (hasTime) GpsTime.fromUtcMillis(snapshot.timeMs, leapSeconds) else null
+    val dop = snapshot.dop
+
     Column(
         Modifier
             .fillMaxSize()
@@ -98,38 +103,37 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         // 時刻
-        if (snapshot.timeMs > 0) {
-            NumRow("UTC", formatUtc(snapshot.timeMs))
-            NumRow("Local", formatLocal(snapshot.timeMs))
+        NumRow("UTC", if (hasTime) formatUtc(snapshot.timeMs) else DASH)
+        NumRow("Local", if (hasTime) formatLocal(snapshot.timeMs) else DASH)
+        NumRow("WN / TOW", if (gps != null) "${gps.week} / %.1f".format(gps.tow) else "$DASH / $DASH")
 
-            val gps = GpsTime.fromUtcMillis(snapshot.timeMs, leapSeconds)
-            NumRow("WN / TOW", "${gps.week} / %.1f".format(gps.tow))
-        } else {
-            NumRow("時刻", "—")
-        }
+        // 位置
+        NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
+        NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
+        NumRow("楕円体高", if (hasPos) "%.1f m".format(snapshot.altitude) else DASH)
+        NumRow("水平精度", if (hasPos) "%.1f m".format(snapshot.accuracy) else DASH)
+        NumRow("速度", if (hasPos) "%.2f m/s".format(snapshot.speed) else DASH)
+        NumRow("方位", if (hasPos) "%.1f °".format(snapshot.bearing) else DASH)
+        NumRow("記録点数", "${snapshot.trackPoints.size}")
 
-        if (snapshot.latitude != null && snapshot.longitude != null) {
-            NumRow("緯度", CoordFormatter.latitudeBoth(snapshot.latitude, coordFormat))
-            NumRow("経度", CoordFormatter.longitudeBoth(snapshot.longitude, coordFormat))
-            NumRow("楕円体高", "%.1f m".format(snapshot.altitude))
-            NumRow("水平精度", "%.1f m".format(snapshot.accuracy))
-            NumRow("速度", "%.2f m/s".format(snapshot.speed))
-            NumRow("方位", "%.1f °".format(snapshot.bearing))
-            NumRow("記録点数", "${snapshot.trackPoints.size}")
-        } else {
-            Text("測位待ち…", fontSize = 13.sp)
-        }
+        // 衛星
         NumRow("衛星", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
 
-        val dop = snapshot.dop
-        if (dop != null) {
-            NumRow("DOP(P/V/H)", "%.2f / %.2f / %.2f".format(dop.pdop, dop.vdop, dop.hdop))
-            NumRow("DOP(G/T)", "%.2f / %.2f".format(dop.gdop, dop.tdop))
-        } else {
-            NumRow("DOP", "—")
-        }
+        // DOP
+        NumRow(
+            "DOP(P/V/H)",
+            if (dop != null) "%.2f / %.2f / %.2f".format(dop.pdop, dop.vdop, dop.hdop)
+            else "$DASH / $DASH / $DASH"
+        )
+        NumRow(
+            "DOP(G/T)",
+            if (dop != null) "%.2f / %.2f".format(dop.gdop, dop.tdop)
+            else "$DASH / $DASH"
+        )
     }
 }
+
+private const val DASH = "—"
 
 private val utcFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).apply {
     timeZone = java.util.TimeZone.getTimeZone("UTC")
