@@ -66,19 +66,27 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
 }
 
 /** session_20260720_143000 → 2026-07-20 14:30:00 */
+/** session_20260720_143000 → 2026-07-20 (月) 14:30:00 */
 private fun formatSessionName(name: String): String {
     val raw = name.removePrefix("session_")
     return runCatching {
         val parsed = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(raw)
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(parsed!!)
+        SimpleDateFormat("yyyy-MM-dd (E) HH:mm:ss", Locale.JAPAN).format(parsed!!)
     }.getOrDefault(name)
 }
 
-/** ファイルサイズと更新時刻から概要を作る（全読み込みはしない） */
+/** ファイルサイズから概算した点数と容量を返す（全読み込みはしない） */
 private fun describeSession(dir: File): String {
     val track = File(dir, "track.csv")
     val sats = File(dir, "sats.csv")
     val totalKb = (track.length() + sats.length()) / 1024
-    val updated = SimpleDateFormat("HH:mm", Locale.US).format(Date(dir.lastModified()))
-    return "更新 $updated ・ ${totalKb} KB"
+
+    // track.csv の1行はおよそ150バイト（ヘッダ分を差し引いて概算）
+    val approxPoints = ((track.length() - TRACK_HEADER_BYTES) / TRACK_ROW_BYTES)
+        .coerceAtLeast(0)
+
+    return "約 ${approxPoints} 点 ・ ${totalKb} KB"
 }
+
+private const val TRACK_HEADER_BYTES = 180L
+private const val TRACK_ROW_BYTES = 180L

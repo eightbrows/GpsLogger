@@ -36,18 +36,23 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.OutlinedIconButton
+import kotlinx.coroutines.delay
 
 @Composable
 fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
     var data by remember { mutableStateOf<SessionData?>(null) }
     var loading by remember { mutableStateOf(true) }
-    var position by remember { mutableFloatStateOf(1f) }  // 0.0〜1.0
+    var position by remember { mutableFloatStateOf(0f) }  // 0.0〜1.0
 
     // 読み込みはIOスレッドで
     LaunchedEffect(sessionDir) {
         loading = true
         data = withContext(Dispatchers.IO) { SessionReader.read(sessionDir) }
-        position = 1f
+        position = 0f
         loading = false
     }
 
@@ -113,11 +118,37 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                     ) {
-                        Slider(
-                            value = position,
-                            onValueChange = { position = it },
-                            modifier = Modifier.padding(horizontal = 12.dp)
-                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            StepButton(
+                                label = "−",
+                                enabled = index > 0,
+                                onStep = {
+                                    val step = 1f / (track.size - 1).coerceAtLeast(1)
+                                    position = (position - step).coerceIn(0f, 1f)
+                                }
+                            )
+
+                            Slider(
+                                value = position,
+                                onValueChange = { position = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp)
+                            )
+
+                            StepButton(
+                                label = "＋",
+                                enabled = index < track.size - 1,
+                                onStep = {
+                                    val step = 1f / (track.size - 1).coerceAtLeast(1)
+                                    position = (position + step).coerceIn(0f, 1f)
+                                }
+                            )
+                        }
+
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -139,3 +170,36 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
 
 private fun formatTime(epochMs: Long): String =
     SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(epochMs))
+
+@Composable
+private fun StepButton(
+    label: String,
+    enabled: Boolean,
+    onStep: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // 押下中は連続送り（最初はゆっくり、続けると速く）
+    LaunchedEffect(isPressed, enabled) {
+        if (isPressed && enabled) {
+            onStep()
+            delay(400)
+            var interval = 150L
+            while (true) {
+                onStep()
+                delay(interval)
+                if (interval > 40L) interval -= 15L
+            }
+        }
+    }
+
+    OutlinedIconButton(
+        onClick = { },
+        enabled = enabled,
+        modifier = Modifier.size(36.dp),
+        interactionSource = interactionSource
+    ) {
+        Text(label, fontSize = 15.sp)
+    }
+}
