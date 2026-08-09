@@ -32,6 +32,7 @@ import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import io.github.eightbrows.gpslogger.calc.GpsTime
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
@@ -156,20 +157,36 @@ private fun SatListPage(snapshot: ViewSnapshot) {
     val sats = snapshot.satellites.sortedWith(compareBy({ it.constellation }, { it.svid }))
 
     Column(Modifier.fillMaxSize()) {
+        // サマリー
+        val used = sats.count { it.usedInFix }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 1.dp)
+        ) {
+            Text(
+                "使用 $used / 可視 ${sats.size}",
+                fontSize = 12.sp,
+                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
         // ヘッダ
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = 12.dp, vertical = 1.dp)
         ) {
-            Text("系統", Modifier.weight(1.4f), fontSize = 11.sp)
-            Text("SV", Modifier.weight(0.7f), fontSize = 11.sp)
-            Text("C/N0", Modifier.weight(1f), fontSize = 11.sp, textAlign = TextAlign.End)
-            Text("仰角", Modifier.weight(1f), fontSize = 11.sp, textAlign = TextAlign.End)
-            Text("方位", Modifier.weight(1f), fontSize = 11.sp, textAlign = TextAlign.End)
-            Text("使用", Modifier.weight(0.7f), fontSize = 11.sp, textAlign = TextAlign.End)
+            Text("系統", Modifier.weight(1.3f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+            Text("SV", Modifier.weight(0.6f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+            Row(Modifier.weight(2.0f)) {
+                Text("使用", Modifier.weight(1f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                Text("方位", Modifier.weight(1.2f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                Text("仰角", Modifier.weight(1.1f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                Text("C/N0", Modifier.weight(1.2f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+            }
         }
-        HorizontalDivider()
 
         // ペイン内スクロール
         LazyColumn(Modifier.fillMaxSize()) {
@@ -177,33 +194,61 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                 Row(
                     Modifier
                         .fillMaxWidth()
+                        .background(
+                            if (sat.usedInFix)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                            else Color.Transparent
+                        )
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(Modifier.weight(1.4f), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.weight(1.3f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Text(constellationName(sat.constellation), fontSize = 12.sp, lineHeight = 12.sp)
                         Box(
                             Modifier
+                                .padding(start = 3.dp)
                                 .size(6.dp)
                                 .background(constellationColor(sat.constellation), CircleShape)
                         )
-                        Text(" " + constellationName(sat.constellation), fontSize = 12.sp, lineHeight = 12.sp)
                     }
-                    Text("${sat.svid}", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 12.sp)
                     Text(
-                        "%.0f".format(sat.cn0DbHz),
-                        Modifier.weight(1f),
-                        fontSize = 12.sp,
-                        lineHeight = 12.sp,
-                        textAlign = TextAlign.End,
-                        color = when {
-                            sat.cn0DbHz >= 40f -> MaterialTheme.colorScheme.primary
-                            sat.cn0DbHz >= 25f -> MaterialTheme.colorScheme.onSurface
-                            else -> MaterialTheme.colorScheme.error
-                        }
+                        "${sat.svid}",
+                        Modifier.weight(0.6f),
+                        fontSize = 12.sp, lineHeight = 12.sp,
+                        textAlign = TextAlign.End
                     )
-                    Text("%.0f".format(sat.elevationDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
-                    Text("%.0f".format(sat.azimuthDeg), Modifier.weight(1f), fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
-                    Text(if (sat.usedInFix) "●" else "", Modifier.weight(0.7f), fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+
+                    Row(Modifier.weight(2.0f), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (sat.usedInFix) "●" else "",
+                            Modifier.weight(1f),
+                            fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End
+                        )
+                        Text(
+                            "%.0f".format(sat.azimuthDeg),
+                            Modifier.weight(1.2f),
+                            fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End
+                        )
+                        Text(
+                            "%.0f".format(sat.elevationDeg),
+                            Modifier.weight(1.1f),
+                            fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End
+                        )
+                        Text(
+                            "%.0f".format(sat.cn0DbHz),
+                            Modifier.weight(1.2f),
+                            fontSize = 12.sp, lineHeight = 12.sp, textAlign = TextAlign.End,
+                            color = when {
+                                sat.cn0DbHz >= 40f -> MaterialTheme.colorScheme.primary
+                                sat.cn0DbHz >= 25f -> MaterialTheme.colorScheme.onSurface
+                                else -> MaterialTheme.colorScheme.error
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -219,4 +264,17 @@ internal fun constellationName(type: Int): String = when (type) {
     GnssStatus.CONSTELLATION_SBAS -> "SBAS"
     GnssStatus.CONSTELLATION_IRNSS -> "IRNSS"
     else -> "不明"
+}
+
+private val COMPASS_16 = arrayOf(
+    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+)
+
+/** 方位角(度) → 16方位 */
+internal fun compassName(azimuthDeg: Float): String {
+    if (azimuthDeg.isNaN()) return ""
+    val normalized = ((azimuthDeg % 360f) + 360f) % 360f
+    val index = ((normalized + 11.25f) / 22.5f).toInt() % 16
+    return COMPASS_16[index]
 }
