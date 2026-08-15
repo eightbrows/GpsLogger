@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.eightbrows.gpslogger"
         minSdk = 30
         targetSdk = 36
-        versionCode = 2026081502
-        versionName = "20260815-R02"
+        versionCode = 2026081503
+        versionName = "20260815-R03"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
