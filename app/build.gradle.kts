@@ -15,8 +15,9 @@ android {
         applicationId = "io.github.eightbrows.gpslogger"
         minSdk = 30
         targetSdk = 36
-        versionCode = 2026081503
-        versionName = "20260815-R03"
+        //noinspection HighAppVersionCode
+        versionCode = 2026081504
+        versionName = "20260815-R04"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,9 +37,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
