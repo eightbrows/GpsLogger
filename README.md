@@ -1,0 +1,102 @@
+# GpsLogger
+
+GNSSの測位結果と衛星状態を記録するAndroidアプリ。地図APIを使わず、軌跡・数値・衛星情報を表示し、記録したデータを時間軸で振り返れます。
+
+## 特徴
+
+- **詳細な記録** — 測位結果に加え、衛星ごとのC/N0・方位角・仰角・キャリア周波数まで記録
+- **DOP自前計算** — 使用衛星の幾何配置からGDOP/PDOP/HDOP/VDOP/TDOPを算出
+- **軌跡連動の衛星リプレイ** — 記録後、軌跡上の任意の時点における衛星配置を再現
+- **記録中の振り返り** — 記録を止めずに過去の時点を確認可能
+- **バックグラウンド記録** — フォアグラウンドサービスで画面を閉じても継続
+- **地図API不要** — 緯度経度グリッドとスケールバーによる背景表示
+
+## 動作環境
+
+- Android 11 (API 30) 以降
+- GNSS受信機を搭載した端末
+
+## 画面構成
+
+縦画面を上下に分割し、上部に軌跡、下部に情報ページを表示します。分割比率はドラッグで調整できます。
+
+下部は横スワイプで3ページを切り替えます。
+
+- **数値** — 時刻(UTC/ローカル/GPS週番号)、座標、高度、精度、速度、DOP
+- **衛星リスト** — 系統・SVID・使用状態・方位・仰角・C/N0
+- **上空図** — スカイプロットと系統別の捕捉状況
+
+## 記録形式
+
+1セッションにつき1フォルダが作成され、2つのCSVが出力されます。
+
+```
+session_20260811_143000/
+├── track.csv   測位ログ
+└── sats.csv    衛星ログ
+```
+
+### track.csv
+
+1測位につき1行。
+
+| カラム | 内容 |
+|---|---|
+| utc_iso8601 | UTC時刻(ISO8601) |
+| epoch_ms | Unixミリ秒 |
+| elapsed_realtime_ns | 起動からの経過ナノ秒(sats.csvとの結合キー) |
+| provider | 位置プロバイダ |
+| latitude / longitude | 緯度・経度 |
+| altitude_ellipsoid_m | WGS84楕円体高 |
+| horizontal_acc_m / vertical_acc_m | 水平・垂直精度 |
+| speed_mps / speed_acc_mps | 速度・速度精度 |
+| bearing_deg / bearing_acc_deg | 方位・方位精度 |
+| gdop / pdop / hdop / vdop / tdop | 精度低下率(測位不成立時は空) |
+| is_mock | モックプロバイダ判定 |
+
+### sats.csv
+
+1エポック×衛星につき1行。
+
+| カラム | 内容 |
+|---|---|
+| utc_iso8601 / epoch_ms | 取得時刻 |
+| elapsed_realtime_ns | 起動からの経過ナノ秒(track.csvとの結合キー) |
+| epoch_id | 同一エポックをまとめるID |
+| constellation | GPS/GLONASS/GALILEO/BEIDOU/QZSS/SBAS/IRNSS |
+| svid | 衛星ID |
+| cn0_dbhz / baseband_cn0_dbhz | 信号強度(dB-Hz) |
+| elevation_deg / azimuth_deg | 仰角・方位角 |
+| carrier_frequency_hz | キャリア周波数(L1/L5の判別に使用) |
+| used_in_fix | 測位に使用されたか |
+| has_almanac / has_ephemeris | アルマナック・エフェメリス保持 |
+
+2つのCSVは `elapsed_realtime_ns` で結合できます。測位点に対して最も近い時刻の衛星エポックを探すことで、任意の地点における衛星配置を再現できます。
+
+## 設定
+
+- 記録間隔(1/2/4/8/16/32秒)
+- 座標表示形式(度/度分秒)
+- 軌跡の色(記録中/プレビュー中)
+- うるう秒(GPS時刻の算出用)
+- WakeLock使用の有無
+
+## 権限
+
+| 権限 | 用途 |
+|---|---|
+| ACCESS_FINE_LOCATION | GNSS測位 |
+| ACCESS_BACKGROUND_LOCATION | バックグラウンド記録 |
+| FOREGROUND_SERVICE_LOCATION | 記録サービスの実行 |
+| POST_NOTIFICATIONS | 記録中の通知表示 |
+| WAKE_LOCK | 画面OFF時の記録継続(設定でON時) |
+
+記録したデータは端末内にのみ保存され、外部に送信されることはありません。
+
+## インストール
+
+[Releases](../../releases) からAPKをダウンロードしてください。
+
+## ライセンス
+
+Apache License 2.0 の下で公開しています。詳細は [LICENSE](LICENSE) を参照してください。
