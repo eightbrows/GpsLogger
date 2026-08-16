@@ -40,6 +40,8 @@ import androidx.compose.runtime.collectAsState
 import io.github.eightbrows.gpslogger.settings.CoordFormat
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 
 private const val MIN_ZOOM = 0.1f
 private const val MAX_ZOOM = 200f
@@ -231,6 +233,25 @@ fun TrajectoryPane(
                         path,
                         lineColor,
                         style = Stroke(width = if (snapshot.isRecording) 2.5.dp.toPx() else 1.5.dp.toPx())
+                    )
+                }
+
+                // 選択点に十字線（再生・レビュー時のみ）
+                if (snapshot.markerIndex != null) {
+                    val markerPos = toScreen(focus.latitude, focus.longitude)
+                    val lineW = 1.dp.toPx()
+
+                    drawLine(
+                        currentColor.copy(alpha = 0.6f),
+                        Offset(markerPos.x, 0f),
+                        Offset(markerPos.x, size.height),
+                        lineW
+                    )
+                    drawLine(
+                        currentColor.copy(alpha = 0.6f),
+                        Offset(0f, markerPos.y),
+                        Offset(size.width, markerPos.y),
+                        lineW
                     )
                 }
 

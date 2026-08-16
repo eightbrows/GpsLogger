@@ -43,7 +43,7 @@ fun AltitudePage(snapshot: ViewSnapshot) {
         Canvas(
             Modifier
                 .fillMaxSize()
-                .padding(start = 40.dp, end = 12.dp, top = 12.dp, bottom = 22.dp)
+                .padding(start = 40.dp, end = 12.dp, top = 12.dp, bottom = 34.dp)
         ) {
             // 高度の範囲（上下に5%の余白）
             var minAlt = Double.MAX_VALUE
@@ -97,15 +97,6 @@ fun AltitudePage(snapshot: ViewSnapshot) {
             }
             drawPath(path, lineColor, style = Stroke(width = 1.5.dp.toPx()))
 
-            // 選択位置の縦線
-            val idx = snapshot.markerIndex
-            if (idx != null && idx in points.indices) {
-                val p = points[idx]
-                val x = toX(p.timeMs)
-                drawLine(markerColor, Offset(x, 0f), Offset(x, size.height), strokeW * 1.5f)
-                drawCircle(markerColor, 3.dp.toPx(), Offset(x, toY(p.altitude)))
-            }
-
             // 時刻ラベル（左端・右端）
             drawContext.canvas.nativeCanvas.drawText(
                 timeFormat.format(Date(t0)), 0f, size.height + paint.textSize + 4f, paint
@@ -116,6 +107,31 @@ fun AltitudePage(snapshot: ViewSnapshot) {
             drawContext.canvas.nativeCanvas.drawText(
                 timeFormat.format(Date(t1)), size.width, size.height + paint.textSize + 4f, endPaint
             )
+
+            // 選択位置の縦線
+            val idx = snapshot.markerIndex
+            if (idx != null && idx in points.indices) {
+                val p = points[idx]
+                val x = toX(p.timeMs)
+                drawLine(markerColor, Offset(x, 0f), Offset(x, size.height), strokeW * 1.5f)
+                drawCircle(markerColor, 3.dp.toPx(), Offset(x, toY(p.altitude)))
+
+                // 選択時刻を時刻軸の位置に表示
+                val selLabel = timeFormat.format(Date(p.timeMs))
+                val selPaint = android.graphics.Paint().apply {
+                    color = markerColor.toArgb()
+                    textSize = 9.dp.toPx()
+                    isAntiAlias = true
+                    textAlign = android.graphics.Paint.Align.CENTER
+                }
+                val half = selPaint.measureText(selLabel) / 2f
+                val labelX = x.coerceIn(half, size.width - half)
+                drawContext.canvas.nativeCanvas.drawText(
+                    selLabel, labelX,
+                    size.height + selPaint.textSize * 2f + 8f,   // 2行目
+                    selPaint
+                )
+            }
         }
 
         // 高度範囲の表示
