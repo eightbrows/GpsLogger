@@ -1,4 +1,4 @@
-package io.github.eightbrows.gpslogger
+package io.github.eightbrows.gpslogger.state
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -11,7 +11,6 @@ import android.os.Looper
 import android.util.Log
 import io.github.eightbrows.gpslogger.calc.DopCalculator
 import io.github.eightbrows.gpslogger.log.LogEvent
-import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 /**
  * 記録せず測位だけ行う（アプリ表示中のプレビュー用）。

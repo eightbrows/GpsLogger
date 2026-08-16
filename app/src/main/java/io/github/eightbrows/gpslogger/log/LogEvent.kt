@@ -1,6 +1,5 @@
 package io.github.eightbrows.gpslogger.log
 
-import android.location.GnssStatus
 import android.location.Location
 import io.github.eightbrows.gpslogger.calc.Dop
 
