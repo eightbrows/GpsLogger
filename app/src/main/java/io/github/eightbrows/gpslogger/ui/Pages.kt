@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +35,7 @@ import androidx.compose.ui.graphics.Color
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
 
     Column(Modifier.fillMaxSize()) {
         HorizontalPager(
@@ -47,6 +46,7 @@ fun BottomPager(snapshot: ViewSnapshot) {
                 0 -> NumericPage(snapshot)
                 1 -> SatListPage(snapshot)
                 2 -> SkyPlotPage(snapshot)
+                3 -> AltitudePage(snapshot)
             }
         }
 
@@ -57,7 +57,7 @@ fun BottomPager(snapshot: ViewSnapshot) {
                 .padding(8.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            val labels = listOf("数値", "衛星リスト", "上空図")
+            val labels = listOf("数値", "衛星リスト", "上空図", "高度")
             labels.forEachIndexed { index, label ->
                 Row(
                     Modifier.padding(horizontal = 10.dp),
