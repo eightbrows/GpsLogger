@@ -13,11 +13,11 @@ android {
 
     defaultConfig {
         applicationId = "io.github.eightbrows.gpslogger"
-        minSdk = 30
+        minSdk = 26
         targetSdk = 36
         //noinspection HighAppVersionCode
-        versionCode = 2026081505
-        versionName = "20260815-R05"
+        versionCode = 2026081601
+        versionName = "20260816-D01"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

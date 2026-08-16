@@ -99,7 +99,7 @@ class LogWriter(private val sessionDir: File) {
         sb.append(loc.speedAccuracyMetersPerSecond).append(',')
         sb.append(loc.bearing).append(',')
         sb.append(loc.bearingAccuracyDegrees).append(',')
-        // DOP 5種は次段で実装（今は空欄）
+
         val d = e.dop
         if (d != null) {
             sb.append("%.2f".format(d.gdop)).append(',')
@@ -110,7 +110,13 @@ class LogWriter(private val sessionDir: File) {
         } else {
             sb.append(",,,,")  // 測位不成立・衛星不足時は空欄
         }
-        sb.append(loc.isMock)
+        val isMock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            loc.isMock
+        } else {
+            @Suppress("DEPRECATION")
+            loc.isFromMockProvider
+        }
+        sb.append(isMock)
         w.write(sb.toString())
         w.newLine()
     }

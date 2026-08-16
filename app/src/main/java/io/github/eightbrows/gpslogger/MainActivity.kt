@@ -52,7 +52,6 @@ import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.settings.SettingsScreen
-import io.github.eightbrows.gpslogger.state.PreviewLocator
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

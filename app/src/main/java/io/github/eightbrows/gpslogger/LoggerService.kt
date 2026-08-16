@@ -24,6 +24,7 @@ import java.util.Locale
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import io.github.eightbrows.gpslogger.calc.DopCalculator
 import io.github.eightbrows.gpslogger.settings.Settings
+import android.os.Build
 
 class LoggerService : Service() {
 
@@ -64,7 +65,8 @@ class LoggerService : Service() {
                         constellation = status.getConstellationType(i),
                         svid = status.getSvid(i),
                         cn0DbHz = status.getCn0DbHz(i),
-                        basebandCn0DbHz = status.getBasebandCn0DbHz(i),
+                        basebandCn0DbHz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                            status.getBasebandCn0DbHz(i) else 0f,
                         elevationDeg = status.getElevationDegrees(i),
                         azimuthDeg = status.getAzimuthDegrees(i),
                         carrierFrequencyHz = if (status.hasCarrierFrequencyHz(i))

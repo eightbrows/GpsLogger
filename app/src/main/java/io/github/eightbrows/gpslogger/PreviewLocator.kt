@@ -1,14 +1,17 @@
-package io.github.eightbrows.gpslogger.state
+package io.github.eightbrows.gpslogger
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.GnssStatus
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import io.github.eightbrows.gpslogger.calc.DopCalculator
 import io.github.eightbrows.gpslogger.log.LogEvent
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 /**
  * 記録せず測位だけ行う（アプリ表示中のプレビュー用）。
@@ -32,7 +35,8 @@ object PreviewLocator {
                         constellation = status.getConstellationType(i),
                         svid = status.getSvid(i),
                         cn0DbHz = status.getCn0DbHz(i),
-                        basebandCn0DbHz = status.getBasebandCn0DbHz(i),
+                        basebandCn0DbHz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                            status.getBasebandCn0DbHz(i) else 0f,
                         elevationDeg = status.getElevationDegrees(i),
                         azimuthDeg = status.getAzimuthDegrees(i),
                         carrierFrequencyHz = if (status.hasCarrierFrequencyHz(i))
@@ -45,7 +49,7 @@ object PreviewLocator {
             }
             GnssStateHolder.updateSatellites(sats, System.currentTimeMillis())
             GnssStateHolder.updateDop(
-                io.github.eightbrows.gpslogger.calc.DopCalculator.calculate(sats)
+                DopCalculator.calculate(sats)
             )
         }
     }
