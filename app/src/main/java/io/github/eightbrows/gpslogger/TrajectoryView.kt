@@ -154,11 +154,11 @@ fun TrajectoryPane(
                 // 外接矩形
                 var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
                 var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                points.forEach { (lat, lon) ->
-                    if (lat < minLat) minLat = lat
-                    if (lat > maxLat) maxLat = lat
-                    if (lon < minLon) minLon = lon
-                    if (lon > maxLon) maxLon = lon
+                points.forEach { p ->
+                    if (p.latitude < minLat) minLat = p.latitude
+                    if (p.latitude > maxLat) maxLat = p.latitude
+                    if (p.longitude < minLon) minLon = p.longitude
+                    if (p.longitude > maxLon) maxLon = p.longitude
                 }
 
                 val centerLat = (minLat + maxLat) / 2.0
@@ -171,8 +171,8 @@ fun TrajectoryPane(
 
                 // 注目点（ライブ=現在地 / 再生=マーカー）を画面中央に置くための平行移動量
                 val focus = snapshot.markerIndex?.let { points.getOrNull(it) } ?: points.last()
-                val fwx = ((focus.second - minLon) * lonScale * scale).toFloat()
-                val fwy = ((maxLat - focus.first) * scale).toFloat()
+                val fwx = ((focus.longitude - minLon) * lonScale * scale).toFloat()
+                val fwy = ((maxLat - focus.latitude) * scale).toFloat()
                 view.followTx = size.width / 2f - fwx
                 view.followTy = size.height / 2f - fwy
 
@@ -207,8 +207,8 @@ fun TrajectoryPane(
                 val minPixelGap = 2.dp.toPx()
                 val screenPoints = ArrayList<Offset>(points.size)
                 var last: Offset? = null
-                points.forEach { (lat, lon) ->
-                    val p = toScreen(lat, lon)
+                points.forEach { pt ->
+                    val p = toScreen(pt.latitude, pt.longitude)
                     val prev = last
                     if (prev == null ||
                         abs(p.x - prev.x) >= minPixelGap || abs(p.y - prev.y) >= minPixelGap
@@ -217,7 +217,7 @@ fun TrajectoryPane(
                         last = p
                     }
                 }
-                val lastRaw = toScreen(points.last().first, points.last().second)
+                val lastRaw = toScreen(points.last().latitude, points.last().longitude)
                 if (screenPoints.lastOrNull() != lastRaw) screenPoints.add(lastRaw)
 
                 if (screenPoints.size >= 2) {
@@ -235,7 +235,7 @@ fun TrajectoryPane(
                 }
 
                 drawCircle(startColor, 4.dp.toPx(), screenPoints.first())
-                drawCircle(currentColor, 5.dp.toPx(), toScreen(focus.first, focus.second))
+                drawCircle(currentColor, 5.dp.toPx(), toScreen(focus.latitude, focus.longitude))
 
                 MapGrid.drawScaleBar(
                     scope = this,

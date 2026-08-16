@@ -7,6 +7,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import io.github.eightbrows.gpslogger.calc.Dop
 
+/** 軌跡上の1点 */
+data class TrackPoint(
+    val latitude: Double,
+    val longitude: Double,
+    val altitude: Double,
+    val timeMs: Long
+)
+
 /** 時刻Tにおける位置＋その瞬間の衛星セット。UIはこれ1つで駆動される。 */
 data class GnssSnapshot(
     val location: Location? = null,
@@ -37,16 +45,22 @@ object GnssStateHolder {
     }
 
     /** 軌跡用の全測位点（緯度経度のみ・安全上限付き） */
-    private val _trackPoints = MutableStateFlow<List<Pair<Double, Double>>>(emptyList())
-    val trackPoints: StateFlow<List<Pair<Double, Double>>> = _trackPoints.asStateFlow()
+    private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
+    val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
     fun updateLocation(location: Location) {
         _snapshot.value = _snapshot.value.copy(location = location)
+        _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
+
         val points = _trackPoints.value
         if (points.size < MAX_TRACK_POINTS) {
-            _trackPoints.value = points + (location.latitude to location.longitude)
+            _trackPoints.value = points + TrackPoint(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                altitude = location.altitude,
+                timeMs = location.time
+            )
         }
-        _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
     }
 
     /** 記録せず測位だけしている時の更新（軌跡には積まない） */
@@ -56,7 +70,12 @@ object GnssStateHolder {
 
         val points = _trackPoints.value
         if (points.size < MAX_TRACK_POINTS) {
-            _trackPoints.value = points + (location.latitude to location.longitude)
+            _trackPoints.value = points + TrackPoint(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                altitude = location.altitude,
+                timeMs = location.time
+            )
         }
     }
 
@@ -94,7 +113,7 @@ data class ViewSnapshot(
     val bearing: Float = 0f,
     val satellites: List<LogEvent.Sat> = emptyList(),
     val dop: Dop? = null,
-    val trackPoints: List<Pair<Double, Double>> = emptyList(),
+    val trackPoints: List<TrackPoint> = emptyList(),
     val timeMs: Long = 0L,
     val markerIndex: Int? = null,  // 再生時の選択位置。nullなら末尾＝現在地
     val isRecording: Boolean = false
