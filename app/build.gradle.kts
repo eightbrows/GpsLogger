@@ -3,6 +3,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// "20260816-D02" -> 2026081602
+fun versionCodeFrom(name: String): Int {
+    val date = name.substringBefore('-').toInt()      // 20260816
+    val seq = name.takeLast(2).toInt()                 // 02
+    return date * 100 + seq
+}
+
+val appVersionName = "20260816-D03"
+
 android {
     namespace = "io.github.eightbrows.gpslogger"
     compileSdk {
@@ -16,8 +25,8 @@ android {
         minSdk = 26
         targetSdk = 36
         //noinspection HighAppVersionCode
-        versionCode = 2026081602
-        versionName = "20260816-D02"
+        versionCode = versionCodeFrom(appVersionName)
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
