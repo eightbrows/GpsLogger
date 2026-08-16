@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.asStateFlow
 /** 座標の表示形式 */
 enum class CoordFormat { DECIMAL, DMS }
 
+/** テーマの選択 */
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 object Settings {
 
     private lateinit var prefs: SharedPreferences
@@ -47,6 +50,10 @@ object Settings {
 
         _recordingColor.value = prefs.getInt(KEY_RECORDING_COLOR, DEFAULT_RECORDING_COLOR)
         _previewColor.value = prefs.getInt(KEY_PREVIEW_COLOR, DEFAULT_PREVIEW_COLOR)
+
+        _themeMode.value = ThemeMode.valueOf(
+            prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)!!
+        )
     }
 
     fun setIntervalSec(sec: Int) {
@@ -111,4 +118,14 @@ object Settings {
     private const val DEFAULT_PREVIEW_COLOR = 0xFF00BCD4.toInt()    // 水色
     private const val KEY_RECORDING_COLOR = "recording_color"
     private const val KEY_PREVIEW_COLOR = "preview_color"
+
+    private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
+    }
+
+    private const val KEY_THEME_MODE = "theme_mode"
 }

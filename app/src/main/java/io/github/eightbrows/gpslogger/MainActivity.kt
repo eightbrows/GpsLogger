@@ -53,13 +53,22 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.settings.SettingsScreen
 import io.github.eightbrows.gpslogger.state.PreviewLocator
+import androidx.compose.foundation.isSystemInDarkTheme
+import io.github.eightbrows.gpslogger.settings.ThemeMode
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Settings.init(this)
         setContent {
-            GpsLoggerTheme {
+            val themeMode by Settings.themeMode.collectAsState()
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            GpsLoggerTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

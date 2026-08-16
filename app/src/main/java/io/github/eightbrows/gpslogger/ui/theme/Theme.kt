@@ -36,8 +36,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun GpsLoggerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,   // 独自配色を安定させるため無効
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

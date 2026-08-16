@@ -131,6 +131,33 @@ fun SettingsScreen() {
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
+        SectionTitle("テーマ")
+        val themeMode by Settings.themeMode.collectAsState()
+        ThemeMode.entries.forEach { mode ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { Settings.setThemeMode(mode) }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = themeMode == mode,
+                    onClick = { Settings.setThemeMode(mode) }
+                )
+                Text(
+                    when (mode) {
+                        ThemeMode.SYSTEM -> "システムに従う"
+                        ThemeMode.LIGHT -> "ライト"
+                        ThemeMode.DARK -> "ダーク"
+                    },
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
         SectionTitle("軌跡の色")
         val recordingColor by Settings.recordingColor.collectAsState()
         val previewColor by Settings.previewColor.collectAsState()
