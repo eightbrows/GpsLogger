@@ -51,6 +51,8 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import java.io.BufferedInputStream
+import java.util.zip.ZipInputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,8 +64,25 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableStateOf(0) }
 
+    var importing by remember { mutableStateOf(false) }
+    var importResult by remember { mutableStateOf<ImportResult?>(null) }
+
     var exporting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            importing = true
+            scope.launch {
+                val result = withContext(Dispatchers.IO) { importZip(context, uri) }
+                importing = false
+                importResult = result
+                reloadKey++
+            }
+        }
+    }
 
     fun exitSelectMode() {
         selectMode = false
@@ -148,60 +167,109 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         }
 
         if (sessions.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text("記録がありません", color = MaterialTheme.colorScheme.outline)
-            }
-            return@Column
-        }
-
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(sessions) { dir ->
-                val isSelected = dir.name in selected
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (isSelected)
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                            else MaterialTheme.colorScheme.surface
+                if (importing) {
+                    Row(
+                        Modifier.padding(top = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
                         )
-                        .combinedClickable(
-                            onClick = {
-                                if (selectMode) {
-                                    selected = if (isSelected) selected - dir.name
-                                    else selected + dir.name
-                                    if (selected.isEmpty()) selectMode = false
-                                } else {
-                                    onSelect(dir)
-                                }
-                            },
-                            onLongClick = {
-                                if (!selectMode) {
-                                    selectMode = true
-                                    selected = setOf(dir.name)
-                                }
-                            }
-                        )
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (selectMode) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = null,
-                            modifier = Modifier.padding(end = 12.dp)
-                        )
+                        Text("  インポート中…", fontSize = 13.sp)
                     }
-                    Column {
-                        Text(formatSessionName(dir.name), fontSize = 15.sp)
-                        Text(
-                            describeSession(dir),
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                } else {
+                    TextButton(onClick = {
+                        importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+                    }) {
+                        Text("ZIPからインポート")
                     }
                 }
-                HorizontalDivider()
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(sessions) { dir ->
+                    val isSelected = dir.name in selected
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (isSelected)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                else MaterialTheme.colorScheme.surface
+                            )
+                            .combinedClickable(
+                                onClick = {
+                                    if (selectMode) {
+                                        selected = if (isSelected) selected - dir.name
+                                        else selected + dir.name
+                                        if (selected.isEmpty()) selectMode = false
+                                    } else {
+                                        onSelect(dir)
+                                    }
+                                },
+                                onLongClick = {
+                                    if (!selectMode) {
+                                        selectMode = true
+                                        selected = setOf(dir.name)
+                                    }
+                                }
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (selectMode) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = null,
+                                modifier = Modifier.padding(end = 12.dp)
+                            )
+                        }
+                        Column {
+                            Text(formatSessionName(dir.name), fontSize = 15.sp)
+                            Text(
+                                describeSession(dir),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                    HorizontalDivider()
+                }
+
+                item {
+                    Box(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (importing) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Text("  インポート中…", fontSize = 13.sp)
+                            }
+                        } else {
+                            TextButton(onClick = {
+                                importLauncher.launch(
+                                    arrayOf(
+                                        "application/zip",
+                                        "application/octet-stream"
+                                    )
+                                )
+                            }) {
+                                Text("ZIPからインポート")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -244,6 +312,33 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
             }
         )
     }
+
+    importResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { importResult = null },
+            title = { Text("インポート結果") },
+            text = {
+                Column {
+                    if (result.error != null) {
+                        Text(result.error, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+                    } else {
+                        Text("${result.imported} 件のセッションをインポートしました", fontSize = 14.sp)
+                    }
+                    if (result.skipped > 0) {
+                        Text(
+                            "${result.skipped} 件のファイルは形式が不正のためスキップしました",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { importResult = null }) { Text("OK") }
+            }
+        )
+    }
 }
 
 /** session_20260720_143000 → 2026-07-20 (月) 14:30:00 */
@@ -273,4 +368,59 @@ private fun defaultZipName(selected: Set<String>): String {
     val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     return if (selected.size == 1) "${selected.first()}.zip"
     else "gpslogger_${selected.size}sessions_$stamp.zip"
+}
+
+/** インポート結果 */
+private data class ImportResult(
+    val imported: Int,
+    val skipped: Int,
+    val error: String? = null
+)
+
+/** エントリ名の許可パターン（これ以外は全て拒否） */
+private val ENTRY_PATTERN = Regex("^(session_\\d{8}_\\d{6})/(track|sats)\\.csv$")
+
+private fun importZip(
+    context: android.content.Context,
+    uri: android.net.Uri
+): ImportResult {
+    val baseDir = context.getExternalFilesDir(null)
+        ?: return ImportResult(0, 0, "保存先が利用できません")
+    val basePath = baseDir.canonicalPath + File.separator
+
+    val importedSessions = mutableSetOf<String>()
+    var skipped = 0
+
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            ZipInputStream(BufferedInputStream(input)).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    val match = ENTRY_PATTERN.matchEntire(entry.name)
+                    if (match == null || entry.isDirectory) {
+                        skipped++
+                    } else {
+                        val sessionName = match.groupValues[1]
+                        val sessionDir = File(baseDir, sessionName)
+                        val target = File(sessionDir, entry.name.substringAfterLast('/'))
+
+                        // 展開先が想定ディレクトリ配下か確認
+                        if (!target.canonicalPath.startsWith(basePath)) {
+                            skipped++
+                        } else {
+                            sessionDir.mkdirs()
+                            target.outputStream().use { out -> zip.copyTo(out) }
+                            importedSessions.add(sessionName)
+                        }
+                    }
+                    zip.closeEntry()
+                    entry = zip.nextEntry
+                }
+            }
+        } ?: return ImportResult(0, 0, "ファイルを開けません")
+
+        ImportResult(importedSessions.size, skipped)
+    }.getOrElse {
+        ImportResult(importedSessions.size, skipped, "読み込みに失敗しました")
+    }
 }
