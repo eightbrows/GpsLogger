@@ -39,6 +39,18 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.BufferedOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,14 +62,45 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     var showConfirm by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(reloadKey) {
-        val base = context.getExternalFilesDir(null)
-        sessions = if (base != null) SessionReader.listSessions(base) else emptyList()
-    }
+    var exporting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun exitSelectMode() {
         selectMode = false
         selected = emptySet()
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) {
+            val targets = sessions.filter { it.name in selected }
+            exporting = true
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            ZipOutputStream(BufferedOutputStream(out)).use { zip ->
+                                targets.forEach { dir ->
+                                    dir.listFiles()?.forEach { file ->
+                                        zip.putNextEntry(ZipEntry("${dir.name}/${file.name}"))
+                                        file.inputStream().use { it.copyTo(zip) }
+                                        zip.closeEntry()
+                                    }
+                                }
+                            }
+                        } != null
+                    }.getOrDefault(false)
+                }
+                exporting = false
+                if (ok) exitSelectMode()
+            }
+        }
+    }
+
+    LaunchedEffect(reloadKey) {
+        val base = context.getExternalFilesDir(null)
+        sessions = if (base != null) SessionReader.listSessions(base) else emptyList()
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -72,23 +115,36 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { exitSelectMode() }) {
-                        Icon(Icons.Filled.Close, contentDescription = "選択解除")
+                    IconButton(
+                        onClick = { if (selected.isNotEmpty()) exportLauncher.launch(defaultZipName(selected)) },
+                        enabled = selected.isNotEmpty()
+                    ) {
+                        Icon(Icons.Filled.Share, contentDescription = "エクスポート")
                     }
-                    Text("${selected.size} 件選択", fontSize = 14.sp)
-                }
-                IconButton(
-                    onClick = { if (selected.isNotEmpty()) showConfirm = true },
-                    enabled = selected.isNotEmpty()
-                ) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "削除",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                    IconButton(
+                        onClick = { if (selected.isNotEmpty()) showConfirm = true },
+                        enabled = selected.isNotEmpty()
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "削除",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
             HorizontalDivider()
+        }
+
+        if (exporting) {
+            Row(
+                Modifier.fillMaxWidth().padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text("  エクスポート中…", fontSize = 12.sp)
+            }
         }
 
         if (sessions.isEmpty()) {
@@ -211,3 +267,10 @@ private fun describeSession(dir: File): String {
 
 private const val TRACK_HEADER_BYTES = 180L
 private const val TRACK_ROW_BYTES = 180L
+
+/** エクスポート時の既定ファイル名 */
+private fun defaultZipName(selected: Set<String>): String {
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    return if (selected.size == 1) "${selected.first()}.zip"
+    else "gpslogger_${selected.size}sessions_$stamp.zip"
+}
