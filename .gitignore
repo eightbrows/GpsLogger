@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+/all_sources.ps1
+/all_sources.txt

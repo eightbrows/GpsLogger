@@ -4,27 +4,30 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.location.GnssStatus
-import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
-
+import io.github.eightbrows.gpslogger.MainActivity
+import io.github.eightbrows.gpslogger.calc.DopCalculator
 import io.github.eightbrows.gpslogger.log.LogEvent
 import io.github.eightbrows.gpslogger.log.LogWriter
+import io.github.eightbrows.gpslogger.settings.Settings
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import io.github.eightbrows.gpslogger.state.GnssStateHolder
-import io.github.eightbrows.gpslogger.calc.DopCalculator
-import io.github.eightbrows.gpslogger.settings.Settings
-import android.os.Build
 
 class LoggerService : Service() {
 
@@ -32,11 +35,11 @@ class LoggerService : Service() {
     private var isLogging = false
     private var logWriter: LogWriter? = null
     private var satEpochId = 0L
-    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var startTimeMs = 0L
     private var fixCount = 0
-    private var notificationHandler: android.os.Handler? = null
+    private var notificationHandler: Handler? = null
     private val notificationUpdater = object : Runnable {
         override fun run() {
             updateNotification()
@@ -83,7 +86,7 @@ class LoggerService : Service() {
                 LogEvent.Sats(
                     epochId = satEpochId++,
                     epochMs = epochMs,
-                    elapsedRealtimeNs = android.os.SystemClock.elapsedRealtimeNanos(),
+                    elapsedRealtimeNs = SystemClock.elapsedRealtimeNanos(),
                     satellites = sats
                 )
             )
@@ -141,16 +144,16 @@ class LoggerService : Service() {
             // 衛星状態
             locationManager.registerGnssStatusCallback(
                 gnssStatusCallback,
-                android.os.Handler(mainLooper)
+                Handler(mainLooper)
             )
             isLogging = true
-            notificationHandler = android.os.Handler(mainLooper).also {
+            notificationHandler = Handler(mainLooper).also {
                 it.postDelayed(notificationUpdater, 1000L)
             }
             if (Settings.useWakeLock.value) {
-                val pm = getSystemService(android.os.PowerManager::class.java)
+                val pm = getSystemService(PowerManager::class.java)
                 wakeLock = pm.newWakeLock(
-                    android.os.PowerManager.PARTIAL_WAKE_LOCK,
+                    PowerManager.PARTIAL_WAKE_LOCK,
                     "GpsLogger::LoggingWakeLock"
                 ).also { it.acquire() }
                 Log.d(TAG, "wakelock acquired")
@@ -184,12 +187,12 @@ class LoggerService : Service() {
 
     private fun buildNotification(): Notification {
         // タップでアプリに戻る
-        val intent = Intent(this, io.github.eightbrows.gpslogger.MainActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
             .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val pendingIntent = android.app.PendingIntent.getActivity(
+        val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or
-                    android.app.PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or
+                    PendingIntent.FLAG_IMMUTABLE
         )
 
         val elapsedSec = if (startTimeMs > 0)

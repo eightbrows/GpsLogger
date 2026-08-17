@@ -22,7 +22,7 @@ object PreviewLocator {
     private var active = false
 
     private val locationListener = LocationListener { location ->
-        GnssStateHolder.updateLocationPreviewOnly(location)
+        GnssStateHolder.updateLocation(location)
     }
 
     private val gnssStatusCallback = object : GnssStatus.Callback() {
@@ -78,6 +78,7 @@ object PreviewLocator {
         if (!active) return
         locationManager?.removeUpdates(locationListener)
         locationManager?.unregisterGnssStatusCallback(gnssStatusCallback)
+        locationManager = null
         active = false
         Log.d(TAG, "preview stopped")
     }

@@ -35,8 +35,14 @@ class LogWriter(private val sessionDir: File) {
 
     fun stop() {
         running = false
-        thread?.join(5000)
+        val t = thread
         thread = null
+        if (t != null) {
+            t.join(5000)
+            if (t.isAlive) {
+                Log.w(TAG, "writer thread did not stop in time; data may be lost")
+            }
+        }
         Log.d(TAG, "writer stopped")
     }
 
@@ -108,7 +114,7 @@ class LogWriter(private val sessionDir: File) {
             sb.append("%.2f".format(d.vdop)).append(',')
             sb.append("%.2f".format(d.tdop)).append(',')
         } else {
-            sb.append(",,,,")  // 測位不成立・衛星不足時は空欄
+            sb.append(",,,,,")  // 測位不成立・衛星不足時は空欄
         }
         val isMock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             loc.isMock

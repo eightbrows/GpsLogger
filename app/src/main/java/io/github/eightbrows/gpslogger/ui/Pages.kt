@@ -278,16 +278,3 @@ internal fun constellationName(type: Int): String = when (type) {
     GnssStatus.CONSTELLATION_IRNSS -> "IRNSS"
     else -> "不明"
 }
-
-private val COMPASS_16 = arrayOf(
-    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
-)
-
-/** 方位角(度) → 16方位 */
-internal fun compassName(azimuthDeg: Float): String {
-    if (azimuthDeg.isNaN()) return ""
-    val normalized = ((azimuthDeg % 360f) + 360f) % 360f
-    val index = ((normalized + 11.25f) / 22.5f).toInt() % 16
-    return COMPASS_16[index]
-}
