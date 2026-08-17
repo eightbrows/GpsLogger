@@ -30,7 +30,9 @@ data class SatEpoch(
 class SessionData(
     val name: String,
     val track: List<TrackRecord>,
-    val satEpochs: List<SatEpoch>
+    val satEpochs: List<SatEpoch>,
+    val skippedTrackLines: Int = 0,
+    val skippedSatLines: Int = 0
 ) {
     /**
      * 指定した elapsedRealtimeNs に最も近い衛星エポックを返す。
@@ -78,19 +80,23 @@ object SessionReader {
         val trackFile = File(sessionDir, "track.csv")
         if (!trackFile.exists()) return null
 
-        val track = readTrack(trackFile)
+        val (track, trackSkipped) = readTrack(trackFile)
         val satEpochs = readSats(File(sessionDir, "sats.csv"))
-        Log.d(TAG, "read ${sessionDir.name}: track=${track.size} satEpochs=${satEpochs.size}")
+        Log.d(TAG, "read ${sessionDir.name}: track=${track.size} (skipped=$trackSkipped) satEpochs=${satEpochs.size}")
 
-        return SessionData(sessionDir.name, track, satEpochs)
+        return SessionData(sessionDir.name, track, satEpochs, trackSkipped)
     }
 
-    private fun readTrack(file: File): List<TrackRecord> {
+    private fun readTrack(file: File): Pair<List<TrackRecord>, Int> {
         val result = ArrayList<TrackRecord>()
+        var skipped = 0
         file.bufferedReader().useLines { lines ->
-            lines.drop(1).forEach { line ->  // ヘッダを飛ばす
+            lines.drop(1).forEach { line ->
                 val c = line.split(',')
-                if (c.size < 19) return@forEach
+                if (c.size < 19) {
+                    if (line.isNotBlank()) skipped++
+                    return@forEach
+                }
                 runCatching {
                     result.add(
                         TrackRecord(
@@ -105,10 +111,10 @@ object SessionReader {
                             dop = parseDop(c)
                         )
                     )
-                }
+                }.onFailure { skipped++ }
             }
         }
-        return result
+        return result to skipped
     }
 
     /** gdop,pdop,hdop,vdop,tdop は 13〜17列目。空欄なら null。 */

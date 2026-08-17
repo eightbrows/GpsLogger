@@ -117,12 +117,25 @@ class LoggerService : Service() {
             fixCount = 0
 
             startForeground(NOTIFICATION_ID, buildNotification())
+
+            // 保存先の確認
+            val baseDir = getExternalFilesDir(null)
+            if (baseDir == null) {
+                Log.e(TAG, "external files dir unavailable")
+                GnssStateHolder.setLoggingError("保存先が利用できません")
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return
+            }
+
             // セッションフォルダを作成してライター開始
             val sessionName = "session_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
                 .format(Date())
-            val sessionDir = File(getExternalFilesDir(null), sessionName)
+            val sessionDir = File(baseDir, sessionName)
             GnssStateHolder.setCurrentSession(sessionDir)
-            logWriter = LogWriter(sessionDir).also { it.start() }
+            logWriter = LogWriter(sessionDir) { message ->
+                GnssStateHolder.setLoggingError(message)
+            }.also { it.start() }
             satEpochId = 0L
             GnssStateHolder.reset()
             GnssStateHolder.setLogging(true)

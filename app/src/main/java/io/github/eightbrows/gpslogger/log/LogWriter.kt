@@ -11,7 +11,10 @@ import java.util.Locale
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
-class LogWriter(private val sessionDir: File) {
+class LogWriter(
+    private val sessionDir: File,
+    private val onError: ((String) -> Unit)? = null
+) {
 
     private val queue = LinkedBlockingQueue<LogEvent>()
     private var thread: Thread? = null
@@ -23,7 +26,11 @@ class LogWriter(private val sessionDir: File) {
 
     fun start() {
         if (running) return
-        sessionDir.mkdirs()
+        if (!sessionDir.exists() && !sessionDir.mkdirs()) {
+            Log.e(TAG, "failed to create session dir")
+            onError?.invoke("保存先フォルダを作成できませんでした")
+            return
+        }
         running = true
         thread = Thread { runLoop() }.also { it.start() }
         Log.d(TAG, "writer started: ${sessionDir.absolutePath}")
@@ -81,10 +88,12 @@ class LogWriter(private val sessionDir: File) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "writer error", e)
+            onError?.invoke("記録の書き込みに失敗しました: ${e.message}")
         } finally {
-            // 停止時は必ず flush してから close
             runCatching { trackWriter.flush(); trackWriter.close() }
+                .onFailure { onError?.invoke("記録の保存に失敗しました") }
             runCatching { satsWriter.flush(); satsWriter.close() }
+                .onFailure { onError?.invoke("記録の保存に失敗しました") }
             Log.d(TAG, "writer closed (final flush done)")
         }
     }

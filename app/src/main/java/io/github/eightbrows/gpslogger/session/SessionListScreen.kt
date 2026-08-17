@@ -71,6 +71,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
 
     var exporting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var exportError by remember { mutableStateOf<String?>(null) }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -116,7 +117,11 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                     }.getOrDefault(false)
                 }
                 exporting = false
-                if (ok) exitSelectMode()
+                if (ok) {
+                    exitSelectMode()
+                } else {
+                    exportError = "エクスポートに失敗しました"
+                }
             }
         }
     }
@@ -355,6 +360,17 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = { importResult = null }) { Text("OK") }
+            }
+        )
+    }
+
+    exportError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { exportError = null },
+            title = { Text("エクスポート") },
+            text = { Text(message, fontSize = 14.sp) },
+            confirmButton = {
+                TextButton(onClick = { exportError = null }) { Text("OK") }
             }
         )
     }

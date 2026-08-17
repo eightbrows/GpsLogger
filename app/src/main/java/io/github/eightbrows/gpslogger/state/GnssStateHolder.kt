@@ -74,6 +74,7 @@ object GnssStateHolder {
     fun reset() {
         _snapshot.value = GnssSnapshot()
         _trackPoints.value = emptyList()
+        _loggingError.value = null
     }
 
     private const val MAX_TRACK_POINTS = 100_000  // 安全上限（1Hzで約27時間）
@@ -84,6 +85,14 @@ object GnssStateHolder {
 
     private val _lastFixElapsedNs = MutableStateFlow(0L)
     val lastFixElapsedNs: StateFlow<Long> = _lastFixElapsedNs.asStateFlow()
+
+    /** 記録中に発生したエラー（正常時は null） */
+    private val _loggingError = MutableStateFlow<String?>(null)
+    val loggingError: StateFlow<String?> = _loggingError.asStateFlow()
+
+    fun setLoggingError(message: String?) {
+        _loggingError.value = message
+    }
 }
 
 /** 表示用スナップショット。ライブ・再生の両方でこれを使う。 */

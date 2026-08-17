@@ -55,6 +55,8 @@ import io.github.eightbrows.gpslogger.settings.SettingsScreen
 import io.github.eightbrows.gpslogger.state.PreviewLocator
 import androidx.compose.foundation.isSystemInDarkTheme
 import io.github.eightbrows.gpslogger.settings.ThemeMode
+import androidx.compose.foundation.background
+import androidx.compose.material3.TextButton
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,6 +90,7 @@ fun RecordControlScreen() {
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
     var reviewing by remember { mutableStateOf(false) }
+    val loggingError by GnssStateHolder.loggingError.collectAsState()
 
     val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsState()
     // 最後の測位から5秒以内ならFIX中とみなす
@@ -190,6 +193,27 @@ fun RecordControlScreen() {
                         onClick = { reviewing = true },
                         enabled = isLogging && session != null
                     ) { Text("記録確認") }
+                }
+            }
+
+            loggingError?.let { message ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        message,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { GnssStateHolder.setLoggingError(null) }) {
+                        Text("閉じる", fontSize = 12.sp)
+                    }
                 }
             }
 
