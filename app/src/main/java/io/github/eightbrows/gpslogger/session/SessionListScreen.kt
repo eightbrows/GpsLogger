@@ -53,6 +53,8 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import java.io.BufferedInputStream
 import java.util.zip.ZipInputStream
+import androidx.compose.runtime.collectAsState
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +86,8 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         }
     }
 
+    val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
+
     fun exitSelectMode() {
         selectMode = false
         selected = emptySet()
@@ -93,7 +97,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         if (uri != null) {
-            val targets = sessions.filter { it.name in selected }
+            val targets = sessions.filter { it.name in selected && it.name != currentSession?.name }
             exporting = true
             scope.launch {
                 val ok = withContext(Dispatchers.IO) {
@@ -195,27 +199,32 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(sessions) { dir ->
+                    val isRecording = currentSession?.name == dir.name
                     val isSelected = dir.name in selected
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .background(
-                                if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                                else MaterialTheme.colorScheme.surface
+                                when {
+                                    isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                    else -> MaterialTheme.colorScheme.surface
+                                }
                             )
                             .combinedClickable(
                                 onClick = {
                                     if (selectMode) {
-                                        selected = if (isSelected) selected - dir.name
-                                        else selected + dir.name
-                                        if (selected.isEmpty()) selectMode = false
+                                        // 記録中は選択させない
+                                        if (!isRecording) {
+                                            selected = if (isSelected) selected - dir.name
+                                            else selected + dir.name
+                                            if (selected.isEmpty()) selectMode = false
+                                        }
                                     } else {
                                         onSelect(dir)
                                     }
                                 },
                                 onLongClick = {
-                                    if (!selectMode) {
+                                    if (!selectMode && !isRecording) {
                                         selectMode = true
                                         selected = setOf(dir.name)
                                     }
@@ -228,11 +237,21 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                             Checkbox(
                                 checked = isSelected,
                                 onCheckedChange = null,
+                                enabled = !isRecording,
                                 modifier = Modifier.padding(end = 12.dp)
                             )
                         }
                         Column {
-                            Text(formatSessionName(dir.name), fontSize = 15.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(formatSessionName(dir.name), fontSize = 15.sp)
+                                if (isRecording) {
+                                    Text(
+                                        "  ● 記録中",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                             Text(
                                 describeSession(dir),
                                 fontSize = 11.sp,
@@ -276,7 +295,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
 
     // 削除確認ダイアログ
     if (showConfirm) {
-        val targets = sessions.filter { it.name in selected }
+        val targets = sessions.filter { it.name in selected && it.name != currentSession?.name }
         AlertDialog(
             onDismissRequest = { showConfirm = false },
             title = { Text("記録を削除") },
