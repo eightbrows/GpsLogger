@@ -111,9 +111,9 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         // 位置
         NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
         NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
-        NumRow("楕円体高", if (hasPos) "%.1f m".format(snapshot.altitude) else DASH)
+        NumRow("楕円体高", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
         NumRow("水平精度", if (hasPos) "%.1f m".format(snapshot.accuracy) else DASH)
-        NumRow("速度", if (hasPos) "%.2f m/s".format(snapshot.speed) else DASH)
+        NumRow("速度", if (hasPos) formatSpeed(snapshot.speed) else DASH)
         NumRow("方位", if (hasPos) "%.1f °".format(snapshot.bearing) else DASH)
         NumRow("記録点数", "${snapshot.trackPoints.size}")
 
@@ -143,6 +143,19 @@ private val localFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java
 
 private fun formatUtc(ms: Long): String = utcFormat.format(java.util.Date(ms))
 private fun formatLocal(ms: Long): String = localFormat.format(java.util.Date(ms))
+
+/** 42.3 → "42.3 m / 138.8 ft" */
+private fun formatAltitude(meters: Double): String {
+    val feet = meters * 3.28084
+    return "%.1f m / %.1f ft".format(meters, feet)
+}
+
+/** 1.25 → "1.25 m/s / 4.5 km/h / 2.4 kt" */
+private fun formatSpeed(mps: Float): String {
+    val kmh = mps * 3.6f
+    val kt = mps / 0.514444f
+    return "%.2f m/s / %.1f km/h / %.1f kt".format(mps, kmh, kt)
+}
 
 @Composable
 private fun NumRow(label: String, value: String) {
