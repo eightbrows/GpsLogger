@@ -37,6 +37,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalContext
+import io.github.eightbrows.gpslogger.BuildConfig
 
 @Composable
 fun SettingsScreen() {
@@ -215,6 +223,34 @@ fun SettingsScreen() {
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.outline
         )
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        SectionTitle("情報")
+
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("バージョン", fontSize = 14.sp)
+            Text(
+                BuildConfig.VERSION_NAME,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        LinkRow(
+            label = "ライセンス",
+            value = "Apache License 2.0",
+            url = "https://github.com/eightbrows/GpsLogger/blob/main/LICENSE"
+        )
+
+        LinkRow(
+            label = "公式サイト",
+            value = "eightbrows.github.io",
+            url = "https://eightbrows.github.io/"
+        )
     }
 }
 
@@ -245,6 +281,37 @@ private fun ColorPicker(selected: Int, onSelect: (Int) -> Unit) {
                         shape = CircleShape
                     )
                     .clickable { onSelect(color) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LinkRow(label: String, value: String, url: String) {
+    val context = LocalContext.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                context.startActivity(intent)
+            }
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, fontSize = 14.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                value,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Icon(
+                Icons.AutoMirrored.Filled.OpenInNew,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 4.dp).size(14.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
