@@ -32,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import io.github.eightbrows.gpslogger.calc.GpsTime
 import androidx.compose.ui.graphics.Color
+import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
@@ -275,6 +276,6 @@ internal fun constellationName(type: Int): String = when (type) {
     GnssStatus.CONSTELLATION_BEIDOU -> "BEIDOU"
     GnssStatus.CONSTELLATION_QZSS -> "QZSS"
     GnssStatus.CONSTELLATION_SBAS -> "SBAS"
-    GnssStatus.CONSTELLATION_IRNSS -> "IRNSS"
+    CONSTELLATION_IRNSS -> "IRNSS"
     else -> "不明"
 }

@@ -40,8 +40,6 @@ import androidx.compose.runtime.collectAsState
 import io.github.eightbrows.gpslogger.settings.CoordFormat
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 
 private const val MIN_ZOOM = 0.1f
 private const val MAX_ZOOM = 200f

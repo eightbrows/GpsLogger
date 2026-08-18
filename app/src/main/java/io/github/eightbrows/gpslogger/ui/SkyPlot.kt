@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 
 /** コンステレーション別の色 */
 fun constellationColor(type: Int): Color = when (type) {
@@ -42,7 +43,7 @@ fun constellationColor(type: Int): Color = when (type) {
     GnssStatus.CONSTELLATION_BEIDOU -> Color(0xFFEF6C00)   // 橙
     GnssStatus.CONSTELLATION_QZSS -> Color(0xFF6A1B9A)     // 紫
     GnssStatus.CONSTELLATION_SBAS -> Color(0xFF00838F)     // 青緑
-    GnssStatus.CONSTELLATION_IRNSS -> Color(0xFF8D6E63)    // 茶
+    CONSTELLATION_IRNSS -> Color(0xFF8D6E63)    // 茶
     else -> Color(0xFF757575)                               // 灰
 }
 
@@ -90,7 +91,7 @@ private fun ConstellationStats(
         GnssStatus.CONSTELLATION_BEIDOU,
         GnssStatus.CONSTELLATION_QZSS,
         GnssStatus.CONSTELLATION_SBAS,
-        GnssStatus.CONSTELLATION_IRNSS
+        io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
     )
     val present = order.filter { type -> sats.any { it.constellation == type } }
 

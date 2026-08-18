@@ -38,13 +38,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.ui.platform.LocalContext
 import io.github.eightbrows.gpslogger.BuildConfig
+import androidx.core.net.toUri
 
 @Composable
 fun SettingsScreen() {
@@ -293,7 +292,7 @@ private fun LinkRow(label: String, value: String, url: String) {
         Modifier
             .fillMaxWidth()
             .clickable {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                 context.startActivity(intent)
             }
             .padding(vertical = 6.dp),

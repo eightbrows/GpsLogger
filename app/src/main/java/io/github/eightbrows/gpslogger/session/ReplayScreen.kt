@@ -41,6 +41,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.OutlinedIconButton
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
@@ -191,7 +192,7 @@ private fun StepButton(
     LaunchedEffect(isPressed, enabled) {
         if (isPressed && enabled) {
             onStep()
-            delay(400)
+            delay(400.milliseconds)
             var interval = 150L
             while (true) {
                 onStep()

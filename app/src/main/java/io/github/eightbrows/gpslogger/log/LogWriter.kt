@@ -166,7 +166,7 @@ class LogWriter(
         GnssStatus.CONSTELLATION_BEIDOU -> "BEIDOU"
         GnssStatus.CONSTELLATION_QZSS -> "QZSS"
         GnssStatus.CONSTELLATION_SBAS -> "SBAS"
-        GnssStatus.CONSTELLATION_IRNSS -> "IRNSS"
+        CONSTELLATION_IRNSS -> "IRNSS"
         else -> "UNKNOWN"
     }
 

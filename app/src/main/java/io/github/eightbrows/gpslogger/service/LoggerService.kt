@@ -168,7 +168,7 @@ class LoggerService : Service() {
                 wakeLock = pm.newWakeLock(
                     PowerManager.PARTIAL_WAKE_LOCK,
                     "GpsLogger::LoggingWakeLock"
-                ).also { it.acquire() }
+                ).also { it.acquire(WAKELOCK_TIMEOUT_MS) }
                 Log.d(TAG, "wakelock acquired")
             }
             Log.d(TAG, "logging started")
@@ -265,6 +265,9 @@ class LoggerService : Service() {
         const val ACTION_STOP = "io.github.eightbrows.gpslogger.STOP"
         private const val CHANNEL_ID = "logging_status"
         private const val NOTIFICATION_ID = 1
+
+        /** WakeLockの上限（12時間）。解放漏れ時の保険 */
+        private const val WAKELOCK_TIMEOUT_MS = 12 * 60 * 60 * 1000L
 
         fun start(context: Context) {
             val intent = Intent(context, LoggerService::class.java).setAction(ACTION_START)

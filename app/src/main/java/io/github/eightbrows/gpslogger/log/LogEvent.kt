@@ -26,3 +26,6 @@ sealed interface LogEvent {
         val hasEphemeris: Boolean
     )
 }
+
+/** GnssStatus.CONSTELLATION_IRNSS は API 29+ のため、値を自前で保持 */
+const val CONSTELLATION_IRNSS = 7

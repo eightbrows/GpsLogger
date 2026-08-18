@@ -4,6 +4,7 @@ import android.util.Log
 import io.github.eightbrows.gpslogger.calc.Dop
 import io.github.eightbrows.gpslogger.log.LogEvent
 import java.io.File
+import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 
 /** track.csv の1行（再生用に必要な項目のみ） */
 data class TrackRecord(
@@ -28,7 +29,6 @@ data class SatEpoch(
 
 /** 1セッション分の読み込み済みデータ */
 class SessionData(
-    val name: String,
     val track: List<TrackRecord>,
     val satEpochs: List<SatEpoch>,
     val skippedTrackLines: Int = 0,
@@ -84,7 +84,7 @@ object SessionReader {
         val satEpochs = readSats(File(sessionDir, "sats.csv"))
         Log.d(TAG, "read ${sessionDir.name}: track=${track.size} (skipped=$trackSkipped) satEpochs=${satEpochs.size}")
 
-        return SessionData(sessionDir.name, track, satEpochs, trackSkipped)
+        return SessionData(track, satEpochs, trackSkipped)
     }
 
     private fun readTrack(file: File): Pair<List<TrackRecord>, Int> {
@@ -185,7 +185,7 @@ object SessionReader {
         "BEIDOU" -> android.location.GnssStatus.CONSTELLATION_BEIDOU
         "QZSS" -> android.location.GnssStatus.CONSTELLATION_QZSS
         "SBAS" -> android.location.GnssStatus.CONSTELLATION_SBAS
-        "IRNSS" -> android.location.GnssStatus.CONSTELLATION_IRNSS
+        "IRNSS" -> CONSTELLATION_IRNSS
         else -> android.location.GnssStatus.CONSTELLATION_UNKNOWN
     }
 

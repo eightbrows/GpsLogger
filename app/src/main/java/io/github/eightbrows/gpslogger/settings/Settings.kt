@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.core.content.edit
 
 /** 座標の表示形式 */
 enum class CoordFormat { DECIMAL, DMS }
@@ -58,27 +59,27 @@ object Settings {
 
     fun setIntervalSec(sec: Int) {
         _intervalSec.value = sec
-        prefs.edit().putInt(KEY_INTERVAL, sec).apply()
+        prefs.edit { putInt(KEY_INTERVAL, sec) }
     }
 
     fun setUseWakeLock(use: Boolean) {
         _useWakeLock.value = use
-        prefs.edit().putBoolean(KEY_WAKELOCK, use).apply()
+        prefs.edit { putBoolean(KEY_WAKELOCK, use)}
     }
 
     fun setCoordFormat(format: CoordFormat) {
         _coordFormat.value = format
-        prefs.edit().putString(KEY_COORD_FORMAT, format.name).apply()
+        prefs.edit { putString(KEY_COORD_FORMAT, format.name)}
     }
 
     fun setSplitRatio(ratio: Float) {
         _splitRatio.value = ratio
-        prefs.edit().putFloat(KEY_SPLIT_RATIO, ratio).apply()
+        prefs.edit { putFloat(KEY_SPLIT_RATIO, ratio)}
     }
 
     fun setLeapSeconds(sec: Int) {
         _leapSeconds.value = sec
-        prefs.edit().putInt(KEY_LEAP_SECONDS, sec).apply()
+        prefs.edit { putInt(KEY_LEAP_SECONDS, sec)}
     }
 
     /** 選択可能な記録間隔（秒） */
@@ -94,12 +95,12 @@ object Settings {
 
     fun setRecordingColor(color: Int) {
         _recordingColor.value = color
-        prefs.edit().putInt(KEY_RECORDING_COLOR, color).apply()
+        prefs.edit { putInt(KEY_RECORDING_COLOR, color) }
     }
 
     fun setPreviewColor(color: Int) {
         _previewColor.value = color
-        prefs.edit().putInt(KEY_PREVIEW_COLOR, color).apply()
+        prefs.edit { putInt(KEY_PREVIEW_COLOR, color) }
     }
 
     /** 軌跡色の選択肢 */
@@ -124,7 +125,7 @@ object Settings {
 
     fun setThemeMode(mode: ThemeMode) {
         _themeMode.value = mode
-        prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
+        prefs.edit {putString(KEY_THEME_MODE, mode.name) }
     }
 
     private const val KEY_THEME_MODE = "theme_mode"

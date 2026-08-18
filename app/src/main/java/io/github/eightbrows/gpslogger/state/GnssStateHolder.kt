@@ -21,10 +21,7 @@ data class GnssSnapshot(
     val satellites: List<LogEvent.Sat> = emptyList(),
     val satEpochMs: Long = 0L,
     val dop: Dop? = null
-) {
-    val satsInView: Int get() = satellites.size
-    val satsUsed: Int get() = satellites.count { it.usedInFix }
-}
+)
 
 /** サービスが書き、UIが読む。シングルトン。 */
 object GnssStateHolder {
@@ -113,5 +110,4 @@ data class ViewSnapshot(
     val satsInView: Int get() = satellites.size
     val satsUsed: Int get() = satellites.count { it.usedInFix }
 
-    val hasFix: Boolean get() = latitude != null && longitude != null
 }
