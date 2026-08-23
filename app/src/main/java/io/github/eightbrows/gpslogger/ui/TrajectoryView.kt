@@ -42,12 +42,12 @@ import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.graphics.Color
 
 private const val MIN_ZOOM = 0.1f
-private const val MAX_ZOOM = 200f
 
 /** 描画時に算出した追従位置を、ジェスチャ処理へ渡すための入れ物（状態ではない） */
 private class TrajViewState {
     var followTx = 0f
     var followTy = 0f
+    var maxZoom = 100f
 }
 
 @Composable
@@ -78,7 +78,7 @@ fun TrajectoryPane(
     // 画面中心をアンカーにしたズーム（ボタン用）
     var canvasSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
     fun applyZoom(factor: Float) {
-        val newZoom = (zoom * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
+        val newZoom = (zoom * factor).coerceIn(MIN_ZOOM, view.maxZoom)
         val k = newZoom / zoom
         if (!following && canvasSize != androidx.compose.ui.geometry.Size.Zero) {
             val cx = canvasSize.width / 2f
@@ -117,7 +117,7 @@ fun TrajectoryPane(
                         detectTransformGestures { centroid, pan, gestureZoom, _ ->
                             // ズーム: 指の中心を固定して拡大縮小
                             if (gestureZoom != 1f) {
-                                val newZoom = (zoom * gestureZoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
+                                val newZoom = (zoom * gestureZoom).coerceIn(MIN_ZOOM, view.maxZoom)
                                 val k = newZoom / zoom
                                 if (!following) {
                                     tx = centroid.x - (centroid.x - tx) * k
@@ -139,7 +139,7 @@ fun TrajectoryPane(
                     }
                     .pointerInput(Unit) {
                         detectTapGestures(onDoubleTap = { p ->
-                            val newZoom = (zoom * 2f).coerceIn(MIN_ZOOM, MAX_ZOOM)
+                            val newZoom = (zoom * 2f).coerceIn(MIN_ZOOM, view.maxZoom)
                             val k = newZoom / zoom
                             if (!following) {
                                 tx = p.x - (p.x - tx) * k
@@ -163,10 +163,18 @@ fun TrajectoryPane(
 
                 val centerLat = (minLat + maxLat) / 2.0
                 val lonScale = cos(centerLat * PI / 180.0)
-                val spanLat = max(maxLat - minLat, 1e-7)
-                val spanLon = max((maxLon - minLon) * lonScale, 1e-7)
+                // 表示範囲の下限を約1mにする（静止時の過剰な拡大を防ぐ）
+                val minSpanDeg = 1.0 / 111_320.0   // 緯度1度 ≒ 111,320 m
+                val spanLat = max(maxLat - minLat, minSpanDeg)
+                val spanLon = max((maxLon - minLon) * lonScale, minSpanDeg)
 
                 val baseScale = minOf(size.width / spanLon, size.height / spanLat).toFloat()
+                // スケールバーが約1cmになる倍率を上限とする
+                // スケールバー長 ≒ 画面幅の1/4 なので、画面幅 4cm 相当が限界
+                val limitSpanMeters = 0.04
+                val limitSpanDeg = limitSpanMeters / 111_320.0
+                val maxScaleForLimit = (size.width / limitSpanDeg).toFloat()
+                view.maxZoom = (maxScaleForLimit / baseScale).coerceAtLeast(1f)
                 val scale = baseScale * zoom
 
                 // 注目点（ライブ=現在地 / 再生=マーカー）を画面中央に置くための平行移動量

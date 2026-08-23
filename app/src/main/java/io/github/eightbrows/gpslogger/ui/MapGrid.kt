@@ -122,22 +122,35 @@ object MapGrid {
         topMarginPx: Float
     ) = with(scope) {
         val metersPerPx = 111_320.0 / scale
+        if (metersPerPx <= 0.0 || metersPerPx.isNaN() || metersPerPx.isInfinite()) return@with
+
         val targetPx = size.width * 0.25
         val roughMeters = metersPerPx * targetPx
+        if (roughMeters <= 0.0 || roughMeters.isNaN() || roughMeters.isInfinite()) return@with
 
         val exp = floor(kotlin.math.log10(roughMeters))
         val base = Math.pow(10.0, exp)
-        val niceMeters = when {
+        var niceMeters = when {
             roughMeters / base >= 5 -> 5 * base
             roughMeters / base >= 2 -> 2 * base
             else -> base
         }
 
-        val barPx = (niceMeters / metersPerPx).toFloat()
-        if (barPx <= 0f || barPx.isNaN() || barPx > size.width) return@with
+        // 画面幅を超える場合は段階的に縮める
+        var barPx = (niceMeters / metersPerPx).toFloat()
+        var guard = 0
+        while (barPx > size.width && guard < 20) {
+            niceMeters /= 2.0
+            barPx = (niceMeters / metersPerPx).toFloat()
+            guard++
+        }
+        if (barPx <= 0f || barPx.isNaN() || barPx.isInfinite()) return@with
 
-        val label = if (niceMeters >= 1000) "%.0f km".format(niceMeters / 1000)
-        else "%.0f m".format(niceMeters)
+        val label = when {
+            niceMeters >= 1000 -> "%.0f km".format(niceMeters / 1000)
+            niceMeters >= 1 -> "%.0f m".format(niceMeters)
+            else -> "%.2f m".format(niceMeters)
+        }
 
         val paint = android.graphics.Paint().apply {
             color = barColor.toArgb()

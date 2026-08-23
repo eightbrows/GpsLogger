@@ -57,6 +57,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import io.github.eightbrows.gpslogger.settings.ThemeMode
 import androidx.compose.foundation.background
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,6 +113,11 @@ fun RecordControlScreen() {
         markerIndex = null,
         isRecording = isLogging
     )
+
+    // 記録確認を開いているときはライブ表示へ戻す
+    BackHandler(enabled = reviewing) {
+        reviewing = false
+    }
 
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -254,6 +260,16 @@ private enum class Tab { RECORD, REPLAY, SETTINGS }
 fun AppRoot() {
     var tab by remember { mutableStateOf(Tab.RECORD) }
     var selectedSession by remember { mutableStateOf<java.io.File?>(null) }
+
+    // 再生画面を開いているときは一覧へ戻す
+    BackHandler(enabled = tab == Tab.REPLAY && selectedSession != null) {
+        selectedSession = null
+    }
+
+    // 記録タブ以外にいるときは記録タブへ戻す
+    BackHandler(enabled = tab != Tab.RECORD && selectedSession == null) {
+        tab = Tab.RECORD
+    }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
