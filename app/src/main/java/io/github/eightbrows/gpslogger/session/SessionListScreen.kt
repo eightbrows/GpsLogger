@@ -1,20 +1,15 @@
 package io.github.eightbrows.gpslogger.session
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,7 +35,6 @@ import java.util.Locale
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +47,15 @@ import java.io.BufferedInputStream
 import java.util.zip.ZipInputStream
 import androidx.compose.runtime.collectAsState
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Checkbox
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,37 +133,70 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // 選択モードのツールバー
-        if (selectMode) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { if (selected.isNotEmpty()) exportLauncher.launch(defaultZipName(selected)) },
-                        enabled = selected.isNotEmpty()
-                    ) {
-                        Icon(Icons.Filled.Share, contentDescription = "エクスポート")
-                    }
-                    IconButton(
-                        onClick = { if (selected.isNotEmpty()) showConfirm = true },
-                        enabled = selected.isNotEmpty()
-                    ) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = "削除",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
+        // 常設ツールバー
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // 左: 補助操作
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { exitSelectMode() },
+                    enabled = selectMode
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "選択解除")
+                }
+                IconButton(
+                    onClick = {
+                        val selectable = sessions
+                            .filter { it.name != currentSession?.name }
+                            .map { it.name }
+                            .toSet()
+                        if (selectable.isNotEmpty()) {
+                            selectMode = true
+                            selected = selectable
+                        }
+                    },
+                    enabled = sessions.isNotEmpty()
+                ) {
+                    Icon(Icons.Filled.SelectAll, contentDescription = "全選択")
+                }
+                if (selectMode) {
+                    Text("${selected.size} 件", fontSize = 13.sp)
                 }
             }
-            HorizontalDivider()
+
+            // 右: 主要操作
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = {
+                    importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+                }) {
+                    Icon(Icons.Filled.FileDownload, contentDescription = "インポート")
+                }
+                IconButton(
+                    onClick = { if (selected.isNotEmpty()) exportLauncher.launch(defaultZipName(selected)) },
+                    enabled = selected.isNotEmpty()
+                ) {
+                    Icon(Icons.Filled.FileUpload, contentDescription = "エクスポート")
+                }
+                IconButton(
+                    onClick = { if (selected.isNotEmpty()) showConfirm = true },
+                    enabled = selected.isNotEmpty()
+                ) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "削除",
+                        tint = if (selected.isNotEmpty()) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    )
+                }
+            }
         }
+        HorizontalDivider()
 
         if (exporting) {
             Row(
@@ -174,30 +210,8 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         }
 
         if (sessions.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("記録がありません", color = MaterialTheme.colorScheme.outline)
-                if (importing) {
-                    Row(
-                        Modifier.padding(top = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Text("  インポート中…", fontSize = 13.sp)
-                    }
-                } else {
-                    TextButton(onClick = {
-                        importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
-                    }) {
-                        Text("ZIPからインポート")
-                    }
-                }
             }
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
@@ -208,15 +222,13 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                         Modifier
                             .fillMaxWidth()
                             .background(
-                                when {
-                                    isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                                    else -> MaterialTheme.colorScheme.surface
-                                }
+                                if (isSelected)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                else MaterialTheme.colorScheme.surface
                             )
                             .combinedClickable(
                                 onClick = {
                                     if (selectMode) {
-                                        // 記録中は選択させない
                                         if (!isRecording) {
                                             selected = if (isSelected) selected - dir.name
                                             else selected + dir.name
@@ -263,34 +275,6 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                         }
                     }
                     HorizontalDivider()
-                }
-
-                item {
-                    Box(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (importing) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Text("  インポート中…", fontSize = 13.sp)
-                            }
-                        } else {
-                            TextButton(onClick = {
-                                importLauncher.launch(
-                                    arrayOf(
-                                        "application/zip",
-                                        "application/octet-stream"
-                                    )
-                                )
-                            }) {
-                                Text("ZIPからインポート")
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -399,8 +383,7 @@ private const val TRACK_ROW_BYTES = 180L
 /** エクスポート時の既定ファイル名 */
 private fun defaultZipName(selected: Set<String>): String {
     val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return if (selected.size == 1) "${selected.first()}.zip"
-    else "gpslogger_${selected.size}sessions_$stamp.zip"
+    return "gpslogger_${stamp}_${selected.size}sessions.zip"
 }
 
 /** インポート結果 */

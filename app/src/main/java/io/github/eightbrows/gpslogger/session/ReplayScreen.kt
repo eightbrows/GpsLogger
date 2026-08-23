@@ -41,7 +41,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.OutlinedIconButton
 import kotlinx.coroutines.delay
-import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 
 @Composable
 fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
@@ -131,7 +132,8 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             StepButton(
-                                label = "−",
+                                icon = Icons.Filled.SkipPrevious,
+                                contentDescription = "前へ",
                                 enabled = index > 0,
                                 onStep = {
                                     val step = 1f / (track.size - 1).coerceAtLeast(1)
@@ -148,7 +150,8 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                             )
 
                             StepButton(
-                                label = "＋",
+                                icon = Icons.Filled.SkipNext,
+                                contentDescription = "次へ",
                                 enabled = index < track.size - 1,
                                 onStep = {
                                     val step = 1f / (track.size - 1).coerceAtLeast(1)
@@ -181,18 +184,18 @@ private fun formatTime(epochMs: Long): String =
 
 @Composable
 private fun StepButton(
-    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
     enabled: Boolean,
     onStep: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // 押下中は連続送り（最初はゆっくり、続けると速く）
     LaunchedEffect(isPressed, enabled) {
         if (isPressed && enabled) {
             onStep()
-            delay(400.milliseconds)
+            delay(400)
             var interval = 150L
             while (true) {
                 onStep()
@@ -208,6 +211,6 @@ private fun StepButton(
         modifier = Modifier.size(36.dp),
         interactionSource = interactionSource
     ) {
-        Text(label, fontSize = 15.sp)
+        Icon(icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
     }
 }
