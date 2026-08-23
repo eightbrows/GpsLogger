@@ -28,6 +28,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import io.github.eightbrows.gpslogger.R
 
 class LoggerService : Service() {
 
@@ -219,9 +220,9 @@ class LoggerService : Service() {
         val fixState = if (usedSats >= 4) "FIX" else "NO FIX"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("GPS記録中  $elapsed")
+            .setContentTitle("位置記録中  $elapsed")
             .setContentText("$fixState ・ ${fixCount}点 ・ 衛星 $usedSats")
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .setOnlyAlertOnce(true)
@@ -236,7 +237,7 @@ class LoggerService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "記録ステータス",
+            "現在位置記録",
             NotificationManager.IMPORTANCE_LOW
         )
         getSystemService(NotificationManager::class.java)
