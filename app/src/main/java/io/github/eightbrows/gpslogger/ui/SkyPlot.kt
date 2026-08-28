@@ -57,16 +57,14 @@ fun SkyPlotPage(snapshot: ViewSnapshot) {
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 左: 系統別の捕捉状況
-        ConstellationStats(
-            sats,
-            snapshot.dop,
-            Modifier
-                .width(96.dp)
+        SideStats(
+            sats = sats,
+            dop = snapshot.dop,
+            modifier = Modifier
+                .width(88.dp)
                 .fillMaxHeight()
         )
 
-        // 右: 配置図
         Box(
             Modifier
                 .weight(1f)
@@ -79,7 +77,7 @@ fun SkyPlotPage(snapshot: ViewSnapshot) {
 }
 
 @Composable
-private fun ConstellationStats(
+private fun SideStats(
     sats: List<LogEvent.Sat>,
     dop: io.github.eightbrows.gpslogger.calc.Dop?,
     modifier: Modifier = Modifier
@@ -91,62 +89,98 @@ private fun ConstellationStats(
         GnssStatus.CONSTELLATION_BEIDOU,
         GnssStatus.CONSTELLATION_QZSS,
         GnssStatus.CONSTELLATION_SBAS,
-        io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
+        CONSTELLATION_IRNSS
     )
     val present = order.filter { type -> sats.any { it.constellation == type } }
 
+    // GPS + QZSS のみで再計算
+    val gjSats = sats.filter {
+        it.constellation == GnssStatus.CONSTELLATION_GPS ||
+                it.constellation == GnssStatus.CONSTELLATION_QZSS
+    }
+    val gjDop = io.github.eightbrows.gpslogger.calc.DopCalculator.calculate(gjSats)
+
     Column(
         modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(1.dp)
     ) {
-        val totalUsed = sats.count { it.usedInFix }
-        Text(
-            "使用 $totalUsed / 可視 ${sats.size}",
-            fontSize = 11.sp,
-            lineHeight = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        // 衛星数
+        val used = sats.count { it.usedInFix }
+        StatRow("使用", "$used", emphasize = true)
+        StatRow("可視", "${sats.size}", emphasize = true)
+
         HorizontalDivider(Modifier.padding(vertical = 3.dp))
 
+        // 系統別
         present.forEach { type ->
-            val used = sats.count { it.constellation == type && it.usedInFix }
-            val total = sats.count { it.constellation == type }
+            val u = sats.count { it.constellation == type && it.usedInFix }
+            val t = sats.count { it.constellation == type }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(7.dp)
+                        .size(6.dp)
                         .background(constellationColor(type), CircleShape)
                 )
                 Text(
-                    " ${constellationName(type)}",
+                    " ${rinexCode(type)}",
                     Modifier.weight(1f),
                     fontSize = 11.sp,
                     lineHeight = 12.sp
                 )
-                Text(
-                    "$used/$total",
-                    fontSize = 11.sp,
-                    lineHeight = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("$u/$t", fontSize = 11.sp, lineHeight = 12.sp)
             }
         }
-
         if (present.isEmpty()) {
-            Text(
-                "衛星なし",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.outline
-            )
+            Text("衛星なし", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
         }
 
-        // DOP（常に5行表示、未計算時は "—"）
         HorizontalDivider(Modifier.padding(vertical = 3.dp))
-        DopRow("DOP(P)", dop?.pdop)
-        DopRow("DOP(V)", dop?.vdop)
-        DopRow("DOP(H)", dop?.hdop)
-        DopRow("DOP(G)", dop?.gdop)
-        DopRow("DOP(T)", dop?.tdop)
+
+        // 全体DOP
+        Text(
+            "DOP",
+            fontSize = 10.sp,
+            lineHeight = 11.sp,
+            color = MaterialTheme.colorScheme.primary
+        )
+        DopRow("P", dop?.pdop)
+        DopRow("V", dop?.vdop)
+        DopRow("H", dop?.hdop)
+        DopRow("G", dop?.gdop)
+        DopRow("T", dop?.tdop)
+
+        HorizontalDivider(Modifier.padding(vertical = 3.dp))
+
+        // GPS + QZSS 限定DOP
+        Text(
+            "DOP (G+J)",
+            fontSize = 10.sp,
+            lineHeight = 11.sp,
+            color = MaterialTheme.colorScheme.primary
+        )
+        DopRow("P", gjDop?.pdop)
+        DopRow("V", gjDop?.vdop)
+        DopRow("H", gjDop?.hdop)
+        DopRow("G", gjDop?.gdop)
+        DopRow("T", gjDop?.tdop)
+    }
+}
+
+@Composable
+private fun StatRow(label: String, value: String, emphasize: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            Modifier.weight(1f),
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            fontSize = if (emphasize) 12.sp else 11.sp,
+            lineHeight = 12.sp
+        )
     }
 }
 
@@ -249,4 +283,16 @@ private fun SkyPlot(sats: List<LogEvent.Sat>, modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+/** RINEXのシステム記号 */
+internal fun rinexCode(type: Int): String = when (type) {
+    GnssStatus.CONSTELLATION_GPS -> "G"
+    GnssStatus.CONSTELLATION_GLONASS -> "R"
+    GnssStatus.CONSTELLATION_GALILEO -> "E"
+    GnssStatus.CONSTELLATION_BEIDOU -> "C"
+    GnssStatus.CONSTELLATION_QZSS -> "J"
+    GnssStatus.CONSTELLATION_SBAS -> "S"
+    CONSTELLATION_IRNSS -> "I"
+    else -> "?"
 }
