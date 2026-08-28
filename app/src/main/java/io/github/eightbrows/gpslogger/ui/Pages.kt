@@ -36,14 +36,19 @@ import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
-    val pagerState = rememberPagerState(pageCount = { 4 })
+    val pageCount = 4
+    val startPage = Int.MAX_VALUE / 2
+    val pagerState = rememberPagerState(
+        initialPage = startPage - (startPage % pageCount),
+        pageCount = { Int.MAX_VALUE }
+    )
 
     Column(Modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) { page ->
-            when (page) {
+            when (page % pageCount) {
                 0 -> NumericPage(snapshot)
                 1 -> SatListPage(snapshot)
                 2 -> SkyPlotPage(snapshot)
@@ -59,16 +64,17 @@ fun BottomPager(snapshot: ViewSnapshot) {
             horizontalArrangement = Arrangement.Center
         ) {
             val labels = listOf("数値", "衛星リスト", "上空図", "高度")
+            val current = pagerState.currentPage % pageCount
             labels.forEachIndexed { index, label ->
                 Row(
-                    Modifier.padding(horizontal = 10.dp),
+                    Modifier.padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         Modifier
                             .size(6.dp)
                             .background(
-                                if (pagerState.currentPage == index)
+                                if (current == index)
                                     MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.outlineVariant,
                                 CircleShape
@@ -77,7 +83,7 @@ fun BottomPager(snapshot: ViewSnapshot) {
                     Text(
                         text = " $label",
                         fontSize = 11.sp,
-                        color = if (pagerState.currentPage == index)
+                        color = if (current == index)
                             MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.outline
                     )
