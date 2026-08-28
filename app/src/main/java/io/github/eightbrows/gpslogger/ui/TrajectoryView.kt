@@ -40,6 +40,8 @@ import androidx.compose.runtime.collectAsState
 import io.github.eightbrows.gpslogger.settings.CoordFormat
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.filled.Delete
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 private const val MIN_ZOOM = 0.1f
 
@@ -53,7 +55,8 @@ private class TrajViewState {
 @Composable
 fun TrajectoryPane(
     snapshot: ViewSnapshot,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClearTrack: (() -> Unit)? = null
 ) {
     val points = snapshot.trackPoints
 
@@ -291,6 +294,20 @@ fun TrajectoryPane(
                 SmallZoomButton("＋") { applyZoom(2f) }
                 SmallZoomButton("－") { applyZoom(0.5f) }
                 SmallZoomButton("1x") { applyZoom(1f / zoom) }
+
+                // 記録していないときだけ軌跡クリア
+                if (onClearTrack != null) {
+                    OutlinedIconButton(
+                        onClick = onClearTrack,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "軌跡をクリア",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
 
                 if (following) {
                     FilledIconButton(

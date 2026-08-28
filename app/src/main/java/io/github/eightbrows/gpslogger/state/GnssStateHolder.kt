@@ -74,6 +74,11 @@ object GnssStateHolder {
         _loggingError.value = null
     }
 
+    /** 軌跡のみクリア（プレビュー中の使用を想定） */
+    fun clearTrackPoints() {
+        _trackPoints.value = emptyList()
+    }
+
     private const val MAX_TRACK_POINTS = 100_000  // 安全上限（1Hzで約27時間）
 
     fun updateDop(dop: Dop?) {

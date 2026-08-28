@@ -227,7 +227,14 @@ fun RecordControlScreen() {
 
             // 上下分割
             SplitScreen(
-                top = { TrajectoryPane(viewSnapshot) },
+                top = {
+                    TrajectoryPane(
+                        viewSnapshot,
+                        onClearTrack = if (!isLogging) {
+                            { GnssStateHolder.clearTrackPoints() }
+                        } else null
+                    )
+                },
                 bottom = { BottomPager(viewSnapshot) }
             )
         }
