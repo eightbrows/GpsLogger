@@ -94,6 +94,8 @@ fun RecordControlScreen() {
     val loggingError by GnssStateHolder.loggingError.collectAsState()
 
     val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsState()
+    val recordingStartMs by GnssStateHolder.recordingStartMs.collectAsState()
+
     // 最後の測位から5秒以内ならFIX中とみなす
     val hasFix = lastFixNs > 0 &&
             (android.os.SystemClock.elapsedRealtimeNanos() - lastFixNs) < 5_000_000_000L
@@ -111,7 +113,9 @@ fun RecordControlScreen() {
         trackPoints = trackPoints,
         timeMs = holderSnapshot.location?.time ?: 0L,
         markerIndex = null,
-        isRecording = isLogging
+        isRecording = isLogging,
+        sessionStartMs = recordingStartMs,
+        sessionEndMs = 0L
     )
 
     // 記録確認を開いているときはライブ表示へ戻す

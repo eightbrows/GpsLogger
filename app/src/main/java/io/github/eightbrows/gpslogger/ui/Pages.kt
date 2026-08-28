@@ -115,6 +115,13 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         NumRow("Local", if (hasTime) formatLocal(snapshot.timeMs) else DASH)
         NumRow("WN / TOW", if (gps != null) "${gps.week} / %.1f".format(gps.tow) else "$DASH / $DASH")
 
+        // 記録情報
+        val startMs = snapshot.sessionStartMs
+        val endMs = snapshot.sessionEndMs
+        NumRow("記録開始", if (startMs > 0) formatLocal(startMs) else DASH)
+        NumRow("記録終了", if (endMs > 0) formatLocal(endMs) else DASH)
+        NumRow("記録時間", formatDuration(startMs, endMs, snapshot.timeMs))
+
         // 位置
         NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
         NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
@@ -284,4 +291,16 @@ internal fun constellationName(type: Int): String = when (type) {
     GnssStatus.CONSTELLATION_SBAS -> "SBAS"
     CONSTELLATION_IRNSS -> "IRNSS"
     else -> "不明"
+}
+
+/** 記録時間。終了時刻があればその差、なければ現在時刻との差 */
+private fun formatDuration(startMs: Long, endMs: Long, nowMs: Long): String {
+    if (startMs <= 0) return DASH
+    val end = if (endMs > 0) endMs else nowMs
+    if (end <= startMs) return DASH
+    val sec = (end - startMs) / 1000
+    val h = sec / 3600
+    val m = (sec % 3600) / 60
+    val s = sec % 60
+    return "%02d:%02d:%02d".format(h, m, s)
 }

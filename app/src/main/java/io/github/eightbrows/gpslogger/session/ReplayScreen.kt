@@ -110,7 +110,9 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                         )
                     },
                     timeMs = record.epochMs,
-                    markerIndex = index
+                    markerIndex = index,
+                    sessionStartMs = track.firstOrNull()?.epochMs ?: 0L,
+                    sessionEndMs = track.lastOrNull()?.epochMs ?: 0L
                 )
 
                 Column(Modifier.fillMaxSize()) {

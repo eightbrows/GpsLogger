@@ -116,6 +116,7 @@ class LoggerService : Service() {
         try {
             startTimeMs = System.currentTimeMillis()
             fixCount = 0
+            GnssStateHolder.setRecordingStart(startTimeMs)
 
             startForeground(NOTIFICATION_ID, buildNotification())
 
@@ -194,6 +195,7 @@ class LoggerService : Service() {
             GnssStateHolder.setLogging(false)
             GnssStateHolder.setCurrentSession(null)
             GnssStateHolder.reset()
+            GnssStateHolder.setRecordingStart(0L)
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

@@ -95,6 +95,14 @@ object GnssStateHolder {
     fun setLoggingError(message: String?) {
         _loggingError.value = message
     }
+
+    /** 記録開始時刻（停止中は0） */
+    private val _recordingStartMs = MutableStateFlow(0L)
+    val recordingStartMs: StateFlow<Long> = _recordingStartMs.asStateFlow()
+
+    fun setRecordingStart(ms: Long) {
+        _recordingStartMs.value = ms
+    }
 }
 
 /** 表示用スナップショット。ライブ・再生の両方でこれを使う。 */
@@ -110,7 +118,9 @@ data class ViewSnapshot(
     val trackPoints: List<TrackPoint> = emptyList(),
     val timeMs: Long = 0L,
     val markerIndex: Int? = null,  // 再生時の選択位置。nullなら末尾＝現在地
-    val isRecording: Boolean = false
+    val isRecording: Boolean = false,
+    val sessionStartMs: Long = 0L,
+    val sessionEndMs: Long = 0L
 ) {
     val satsInView: Int get() = satellites.size
     val satsUsed: Int get() = satellites.count { it.usedInFix }
