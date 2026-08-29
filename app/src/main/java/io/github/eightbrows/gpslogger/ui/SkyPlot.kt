@@ -144,11 +144,11 @@ private fun SideStats(
             lineHeight = 11.sp,
             color = MaterialTheme.colorScheme.primary
         )
-        DopRow("P", dop?.pdop)
-        DopRow("V", dop?.vdop)
-        DopRow("H", dop?.hdop)
-        DopRow("G", dop?.gdop)
-        DopRow("T", dop?.tdop)
+        DopRow("P", gjDop?.pdop)
+        DopRow("H", gjDop?.hdop)
+        DopRow("V", gjDop?.vdop)
+        DopRow("G", gjDop?.gdop)
+        DopRow("T", gjDop?.tdop)
 
         HorizontalDivider(Modifier.padding(vertical = 3.dp))
 
@@ -160,8 +160,8 @@ private fun SideStats(
             color = MaterialTheme.colorScheme.primary
         )
         DopRow("P", gjDop?.pdop)
-        DopRow("V", gjDop?.vdop)
         DopRow("H", gjDop?.hdop)
+        DopRow("V", gjDop?.vdop)
         DopRow("G", gjDop?.gdop)
         DopRow("T", gjDop?.tdop)
     }

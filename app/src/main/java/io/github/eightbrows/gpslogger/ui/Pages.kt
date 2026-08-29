@@ -36,7 +36,10 @@ import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 import io.github.eightbrows.gpslogger.log.LogEvent
 
 @Composable
-fun BottomPager(snapshot: ViewSnapshot) {
+fun BottomPager(
+    snapshot: ViewSnapshot,
+    onSelectIndex: ((Int) -> Unit)? = null
+) {
     val pageCount = 4
     val startPage = Int.MAX_VALUE / 2
     val pagerState = rememberPagerState(
@@ -53,7 +56,7 @@ fun BottomPager(snapshot: ViewSnapshot) {
                 0 -> NumericPage(snapshot)
                 1 -> SatListPage(snapshot)
                 2 -> SkyPlotPage(snapshot)
-                3 -> AltitudePage(snapshot)
+                3 -> AltitudePage(snapshot, onSelectIndex)
             }
         }
 
@@ -146,8 +149,8 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         NumRow(
             "DOP",
             if (dop != null)
-                "P%.2f / V%.2f / H%.2f / G%.2f / T%.2f".format(
-                    dop.pdop, dop.vdop, dop.hdop, dop.gdop, dop.tdop
+                "P%.2f / H%.2f / V%.2f / G%.2f / T%.2f".format(
+                    dop.pdop, dop.hdop, dop.vdop, dop.gdop, dop.tdop
                 )
             else DASH
         )

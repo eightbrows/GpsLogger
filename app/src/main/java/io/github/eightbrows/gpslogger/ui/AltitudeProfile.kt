@@ -22,6 +22,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -32,8 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 
+
 @Composable
-fun AltitudePage(snapshot: ViewSnapshot) {
+fun AltitudePage(
+    snapshot: ViewSnapshot,
+    onSelectIndex: ((Int) -> Unit)? = null
+) {
     val points = snapshot.trackPoints
     val lineColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
@@ -71,11 +76,32 @@ fun AltitudePage(snapshot: ViewSnapshot) {
                 .fillMaxSize()
                 .padding(start = 40.dp, end = 12.dp, top = 12.dp, bottom = 34.dp)
                 .pointerInput(zoom) {
-                    // 拡大中のみ横ドラッグで移動（ページ切替との競合を避ける）
                     if (zoom > 1f) {
                         detectHorizontalDragGestures { _, dragAmount ->
                             offset -= dragAmount / size.width / zoom
                             clampOffset()
+                        }
+                    }
+                }
+                .pointerInput(points, zoom, offset) {
+                    if (onSelectIndex != null) {
+                        detectTapGestures { tap ->
+                            // タップX座標から時刻を逆算し、最も近い点を選ぶ
+                            val t0All = points.first().timeMs
+                            val t1All = points.last().timeMs
+                            val dtAll = max((t1All - t0All).toDouble(), 1.0)
+                            val viewStart = t0All + (dtAll * offset).toLong()
+                            val viewEnd = t0All + (dtAll * (offset + 1f / zoom)).toLong()
+                            val dtView = max((viewEnd - viewStart).toDouble(), 1.0)
+
+                            val tappedMs = viewStart + (tap.x / size.width * dtView).toLong()
+                            var best = 0
+                            var bestDiff = Long.MAX_VALUE
+                            points.forEachIndexed { i, p ->
+                                val d = kotlin.math.abs(p.timeMs - tappedMs)
+                                if (d < bestDiff) { bestDiff = d; best = i }
+                            }
+                            onSelectIndex(best)
                         }
                     }
                 }
@@ -157,9 +183,9 @@ fun AltitudePage(snapshot: ViewSnapshot) {
                 timeFormat.format(Date(viewEnd)), size.width, size.height + paint.textSize + 4f, endPaint
             )
 
-            // 選択位置（表示範囲内のときだけ）
-            val idx = snapshot.markerIndex
-            if (idx != null && idx in points.indices) {
+            // 選択位置（再生時はmarkerIndex、ライブ時は末尾）
+            val idx = snapshot.markerIndex ?: (points.size - 1)
+            if (idx in points.indices) {
                 val p = points[idx]
                 if (p.timeMs in viewStart..viewEnd) {
                     val x = toX(p.timeMs)
