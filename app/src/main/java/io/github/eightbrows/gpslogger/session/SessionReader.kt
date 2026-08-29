@@ -17,6 +17,7 @@ data class TrackRecord(
     val verticalAccuracy: Float,
     val speed: Float,
     val bearing: Float,
+    val bearingAccuracy: Float,
     val dop: Dop?
 )
 
@@ -110,6 +111,7 @@ object SessionReader {
                             verticalAccuracy = c[8].toFloatOrNull() ?: 0f,
                             speed = c[9].toFloatOrNull() ?: 0f,
                             bearing = c[11].toFloatOrNull() ?: 0f,
+                            bearingAccuracy = c[12].toFloatOrNull() ?: 0f,
                             dop = parseDop(c)
                         )
                     )

@@ -126,6 +126,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     verticalAccuracy = record.verticalAccuracy,
                     speed = record.speed,
                     bearing = record.bearing,
+                    bearingAccuracy = record.bearingAccuracy,
                     satellites = satEpoch?.satellites ?: emptyList(),
                     dop = record.dop,
                     trackPoints = track.map {

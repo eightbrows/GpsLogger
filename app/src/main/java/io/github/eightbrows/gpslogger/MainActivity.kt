@@ -115,6 +115,7 @@ fun RecordControlScreen() {
         verticalAccuracy = holderSnapshot.location?.verticalAccuracyMeters ?: 0f,
         speed = holderSnapshot.location?.speed ?: 0f,
         bearing = holderSnapshot.location?.bearing ?: 0f,
+        bearingAccuracy = holderSnapshot.location?.bearingAccuracyDegrees ?: 0f,
         satellites = holderSnapshot.satellites,
         dop = holderSnapshot.dop,
         trackPoints = trackPoints,

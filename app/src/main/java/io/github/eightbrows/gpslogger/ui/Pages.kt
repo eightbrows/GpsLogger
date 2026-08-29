@@ -125,7 +125,11 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             if (hasPos) "H%.1f m / V%.1f m".format(snapshot.accuracy, snapshot.verticalAccuracy) else DASH
         )
         NumRow("速度", if (hasPos) formatSpeed(snapshot.speed) else DASH)
-        NumRow("方位", if (hasPos) "%.1f °".format(snapshot.bearing) else DASH)
+        NumRow(
+            "方位",
+            if (hasPos) "%.1f deg (+/- %.1f)".format(snapshot.bearing, snapshot.bearingAccuracy)
+            else DASH
+        )
 
         // 衛星
         NumRow("衛星数", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
