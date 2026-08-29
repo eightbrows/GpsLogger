@@ -245,11 +245,11 @@ fun SettingsScreen() {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !granted) {
-                        if (perm.requestable) {
-                            permissionLauncher.launch(perm.manifestName)
-                        } else {
+                    .clickable {
+                        if (granted || !perm.requestable) {
                             PermissionUtil.openAppSettings(context)
+                        } else {
+                            permissionLauncher.launch(perm.manifestName)
                         }
                     }
                     .padding(vertical = 6.dp),
