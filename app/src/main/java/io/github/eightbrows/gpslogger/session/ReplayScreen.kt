@@ -145,7 +145,16 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                 Column(Modifier.fillMaxSize()) {
                     Box(Modifier.weight(1f)) {
                         SplitScreen(
-                            top = { TrajectoryPane(snapshot) },
+                            top = {
+                                TrajectoryPane(
+                                    snapshot = snapshot,
+                                    onSelectIndex = { index ->
+                                        position = if (track.size > 1) {
+                                            index.toFloat() / (track.size - 1)
+                                        } else 0f
+                                    }
+                                )
+                            },
                             bottom = {
                                 BottomPager(snapshot) { index ->
                                     position = if (track.size > 1) {

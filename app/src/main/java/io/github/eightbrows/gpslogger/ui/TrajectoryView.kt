@@ -50,13 +50,21 @@ private class TrajViewState {
     var followTx = 0f
     var followTy = 0f
     var maxZoom = 100f
+    // タップ位置の逆変換に使う
+    var ox = 0f
+    var oy = 0f
+    var scale = 0f
+    var lonScale = 1.0
+    var minLon = 0.0
+    var maxLat = 0.0
 }
 
 @Composable
 fun TrajectoryPane(
     snapshot: ViewSnapshot,
     modifier: Modifier = Modifier,
-    onClearTrack: (() -> Unit)? = null
+    onClearTrack: (() -> Unit)? = null,
+    onSelectIndex: ((Int) -> Unit)? = null
 ) {
     val points = snapshot.trackPoints
 
@@ -116,6 +124,25 @@ fun TrajectoryPane(
                 Modifier
                     .fillMaxSize()
                     .padding(12.dp)
+                    .pointerInput(points, onSelectIndex) {
+                        if (onSelectIndex != null) {
+                            detectTapGestures { tap ->
+                                if (view.scale <= 0f) return@detectTapGestures
+                                val lon = view.minLon + (tap.x - view.ox) / (view.lonScale * view.scale)
+                                val lat = view.maxLat - (tap.y - view.oy) / view.scale
+
+                                var best = 0
+                                var bestD = Double.MAX_VALUE
+                                points.forEachIndexed { i, p ->
+                                    val dx = (p.longitude - lon) * view.lonScale
+                                    val dy = p.latitude - lat
+                                    val d = dx * dx + dy * dy
+                                    if (d < bestD) { bestD = d; best = i }
+                                }
+                                onSelectIndex(best)
+                            }
+                        }
+                    }
                     .pointerInput(Unit) {
                         detectTransformGestures { centroid, pan, gestureZoom, _ ->
                             // ズーム: 指の中心を固定して拡大縮小
@@ -139,17 +166,6 @@ fun TrajectoryPane(
                                 ty += pan.y
                             }
                         }
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures(onDoubleTap = { p ->
-                            val newZoom = (zoom * 2f).coerceIn(MIN_ZOOM, view.maxZoom)
-                            val k = newZoom / zoom
-                            if (!following) {
-                                tx = p.x - (p.x - tx) * k
-                                ty = p.y - (p.y - ty) * k
-                            }
-                            zoom = newZoom
-                        })
                     }
             ) {
                 canvasSize = size
@@ -194,6 +210,14 @@ fun TrajectoryPane(
                     ox + ((lon - minLon) * lonScale * scale).toFloat(),
                     oy + ((maxLat - lat) * scale).toFloat()
                 )
+
+                // タップ位置の逆変換用に保存
+                view.ox = ox
+                view.oy = oy
+                view.scale = scale
+                view.lonScale = lonScale
+                view.minLon = minLon
+                view.maxLat = maxLat
 
                 // 画面座標 → 緯度経度（グリッドの範囲計算に使う）
                 fun screenToLat(y: Float): Double = maxLat - (y - oy) / scale
