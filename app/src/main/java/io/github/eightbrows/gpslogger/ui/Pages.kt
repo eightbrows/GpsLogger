@@ -64,34 +64,21 @@ fun BottomPager(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(vertical = 3.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            val labels = listOf("数値", "衛星リスト", "上空図", "高度")
             val current = pagerState.currentPage % pageCount
-            labels.forEachIndexed { index, label ->
-                Row(
-                    Modifier.padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        Modifier
-                            .size(6.dp)
-                            .background(
-                                if (current == index)
-                                    MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outlineVariant,
-                                CircleShape
-                            )
-                    )
-                    Text(
-                        text = " $label",
-                        fontSize = 11.sp,
-                        color = if (current == index)
-                            MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline
-                    )
-                }
+            repeat(pageCount) { index ->
+                Box(
+                    Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(5.dp)
+                        .background(
+                            if (current == index) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant,
+                            CircleShape
+                        )
+                )
             }
         }
     }
