@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import io.github.eightbrows.gpslogger.calc.GpsTime
 import androidx.compose.ui.graphics.Color
 import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
+import io.github.eightbrows.gpslogger.log.LogEvent
 
 @Composable
 fun BottomPager(snapshot: ViewSnapshot) {
@@ -120,31 +121,69 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         val endMs = snapshot.sessionEndMs
         NumRow("記録開始", if (startMs > 0) formatLocal(startMs) else DASH)
         NumRow("記録終了", if (endMs > 0) formatLocal(endMs) else DASH)
-        NumRow("記録時間", formatDuration(startMs, endMs, snapshot.timeMs))
+        NumRow(
+            "記録時間",
+            "${formatDuration(startMs, endMs, snapshot.timeMs)}  (${snapshot.trackPoints.size}点)"
+        )
 
         // 位置
         NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
         NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
         NumRow("楕円体高", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
-        NumRow("水平精度", if (hasPos) "%.1f m".format(snapshot.accuracy) else DASH)
+        NumRow(
+            "精度",
+            if (hasPos) "H%.1f m / V%.1f m".format(snapshot.accuracy, snapshot.verticalAccuracy) else DASH
+        )
         NumRow("速度", if (hasPos) formatSpeed(snapshot.speed) else DASH)
         NumRow("方位", if (hasPos) "%.1f °".format(snapshot.bearing) else DASH)
-        NumRow("記録点数", "${snapshot.trackPoints.size}")
 
         // 衛星
-        NumRow("衛星", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
+        NumRow("衛星数", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
+        ConstellationRow("衛星種別1", snapshot.satellites, GROUP_WEST)
+        ConstellationRow("衛星種別2", snapshot.satellites, GROUP_OTHER)
 
         // DOP
         NumRow(
-            "DOP(P/V/H)",
-            if (dop != null) "%.2f / %.2f / %.2f".format(dop.pdop, dop.vdop, dop.hdop)
-            else "$DASH / $DASH / $DASH"
+            "DOP",
+            if (dop != null)
+                "P%.2f / V%.2f / H%.2f / G%.2f / T%.2f".format(
+                    dop.pdop, dop.vdop, dop.hdop, dop.gdop, dop.tdop
+                )
+            else DASH
         )
-        NumRow(
-            "DOP(G/T)",
-            if (dop != null) "%.2f / %.2f".format(dop.gdop, dop.tdop)
-            else "$DASH / $DASH"
-        )
+    }
+}
+
+@Composable
+private fun ConstellationRow(
+    label: String,
+    sats: List<LogEvent.Sat>,
+    order: List<Int>
+) {
+    val present = order.filter { type -> sats.any { it.constellation == type } }
+
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(0.8f), fontSize = 13.sp, lineHeight = 14.sp)
+        Row(Modifier.weight(2.2f), verticalAlignment = Alignment.CenterVertically) {
+            if (present.isEmpty()) {
+                Text(DASH, fontSize = 13.sp, lineHeight = 14.sp)
+            } else {
+                present.forEach { type ->
+                    val used = sats.count { it.constellation == type && it.usedInFix }
+                    val total = sats.count { it.constellation == type }
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .background(constellationColor(type), CircleShape)
+                    )
+                    Text(
+                        " ${rinexCode(type)}$used/$total ",
+                        fontSize = 13.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -304,3 +343,39 @@ private fun formatDuration(startMs: Long, endMs: Long, nowMs: Long): String {
     val s = sec % 60
     return "%02d:%02d:%02d".format(h, m, s)
 }
+
+/** 系統別の使用/可視をRINEX記号で並べる */
+private fun constellationBreakdown(sats: List<LogEvent.Sat>): String {
+    if (sats.isEmpty()) return DASH
+    val order = listOf(
+        GnssStatus.CONSTELLATION_GPS,
+        GnssStatus.CONSTELLATION_GLONASS,
+        GnssStatus.CONSTELLATION_GALILEO,
+        GnssStatus.CONSTELLATION_BEIDOU,
+        GnssStatus.CONSTELLATION_QZSS,
+        GnssStatus.CONSTELLATION_SBAS,
+        CONSTELLATION_IRNSS
+    )
+    return order.mapNotNull { type ->
+        val total = sats.count { it.constellation == type }
+        if (total == 0) return@mapNotNull null
+        val used = sats.count { it.constellation == type && it.usedInFix }
+        "${rinexCode(type)}$used/$total"
+    }.joinToString(" ")
+}
+
+/** 衛星種別1: GPS・Galileo・QZSS・SBAS */
+private val GROUP_WEST = listOf(
+    GnssStatus.CONSTELLATION_GPS,
+    GnssStatus.CONSTELLATION_GALILEO,
+    GnssStatus.CONSTELLATION_QZSS,
+    GnssStatus.CONSTELLATION_SBAS
+)
+
+/** 衛星種別2: GLONASS・BeiDou・NavIC・不明 */
+private val GROUP_OTHER = listOf(
+    GnssStatus.CONSTELLATION_GLONASS,
+    GnssStatus.CONSTELLATION_BEIDOU,
+    CONSTELLATION_IRNSS,
+    GnssStatus.CONSTELLATION_UNKNOWN
+)

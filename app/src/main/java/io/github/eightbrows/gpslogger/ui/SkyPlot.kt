@@ -89,7 +89,8 @@ private fun SideStats(
         GnssStatus.CONSTELLATION_BEIDOU,
         GnssStatus.CONSTELLATION_QZSS,
         GnssStatus.CONSTELLATION_SBAS,
-        CONSTELLATION_IRNSS
+        CONSTELLATION_IRNSS,
+        GnssStatus.CONSTELLATION_UNKNOWN
     )
     val present = order.filter { type -> sats.any { it.constellation == type } }
 

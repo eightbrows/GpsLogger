@@ -14,6 +14,7 @@ data class TrackRecord(
     val longitude: Double,
     val altitude: Double,
     val accuracy: Float,
+    val verticalAccuracy: Float,
     val speed: Float,
     val bearing: Float,
     val dop: Dop?
@@ -106,6 +107,7 @@ object SessionReader {
                             longitude = c[5].toDouble(),
                             altitude = c[6].toDoubleOrNull() ?: 0.0,
                             accuracy = c[7].toFloatOrNull() ?: 0f,
+                            verticalAccuracy = c[8].toFloatOrNull() ?: 0f,
                             speed = c[9].toFloatOrNull() ?: 0f,
                             bearing = c[11].toFloatOrNull() ?: 0f,
                             dop = parseDop(c)

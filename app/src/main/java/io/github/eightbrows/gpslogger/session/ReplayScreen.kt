@@ -43,12 +43,25 @@ import androidx.compose.material3.OutlinedIconButton
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.collectAsState
+import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
     var data by remember { mutableStateOf<SessionData?>(null) }
     var loading by remember { mutableStateOf(true) }
     var position by remember { mutableFloatStateOf(0f) }  // 0.0〜1.0
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
+    val isRecordingThis = currentSession?.name == sessionDir.name
 
     // 読み込みはIOスレッドで
     LaunchedEffect(sessionDir) {
@@ -63,13 +76,26 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
             }
-            Text(sessionDir.name, fontSize = 13.sp)
+            Text(sessionDir.name, Modifier.weight(1f), fontSize = 12.sp)
+            IconButton(
+                onClick = { showDeleteConfirm = true },
+                enabled = !isRecordingThis,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "削除",
+                    tint = if (isRecordingThis) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
         HorizontalDivider()
 
@@ -97,6 +123,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     longitude = record.longitude,
                     altitude = record.altitude,
                     accuracy = record.accuracy,
+                    verticalAccuracy = record.verticalAccuracy,
                     speed = record.speed,
                     bearing = record.bearing,
                     satellites = satEpoch?.satellites ?: emptyList(),
@@ -127,7 +154,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .padding(horizontal = 12.dp)
                     ) {
                         Row(
                             Modifier.fillMaxWidth(),
@@ -148,7 +175,17 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                                 onValueChange = { position = it },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(horizontal = 8.dp)
+                                    .padding(horizontal = 32.dp),
+                                thumb = {
+                                    Box(
+                                        Modifier
+                                            .size(width = 16.dp, height = 32.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primary,
+                                                RoundedCornerShape(6.dp)
+                                            )
+                                    )
+                                }
                             )
 
                             StepButton(
@@ -178,6 +215,36 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("記録を削除") },
+            text = {
+                Column {
+                    Text(formatSessionLabel(sessionDir.name), fontSize = 14.sp)
+                    Text(
+                        "この操作は取り消せません。",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    sessionDir.deleteRecursively()
+                    showDeleteConfirm = false
+                    onBack()
+                }) {
+                    Text("削除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("キャンセル") }
+            }
+        )
     }
 }
 
@@ -215,4 +282,13 @@ private fun StepButton(
     ) {
         Icon(icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
     }
+}
+
+/** session_20260720_143000 → 2026-07-20 14:30:00 */
+private fun formatSessionLabel(name: String): String {
+    val raw = name.removePrefix("session_")
+    return runCatching {
+        val parsed = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(raw)
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(parsed!!)
+    }.getOrDefault(name)
 }

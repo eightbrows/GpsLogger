@@ -111,6 +111,7 @@ data class ViewSnapshot(
     val longitude: Double? = null,
     val altitude: Double = 0.0,
     val accuracy: Float = 0f,
+    val verticalAccuracy: Float = 0f,
     val speed: Float = 0f,
     val bearing: Float = 0f,
     val satellites: List<LogEvent.Sat> = emptyList(),

@@ -94,7 +94,6 @@ fun RecordControlScreen() {
     val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
-    var reviewing by remember { mutableStateOf(false) }
     val loggingError by GnssStateHolder.loggingError.collectAsState()
 
     val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsState()
@@ -111,6 +110,7 @@ fun RecordControlScreen() {
         longitude = holderSnapshot.location?.longitude,
         altitude = holderSnapshot.location?.altitude ?: 0.0,
         accuracy = holderSnapshot.location?.accuracy ?: 0f,
+        verticalAccuracy = holderSnapshot.location?.verticalAccuracyMeters ?: 0f,
         speed = holderSnapshot.location?.speed ?: 0f,
         bearing = holderSnapshot.location?.bearing ?: 0f,
         satellites = holderSnapshot.satellites,
@@ -122,11 +122,6 @@ fun RecordControlScreen() {
         sessionStartMs = recordingStartMs,
         sessionEndMs = 0L
     )
-
-    // 記録確認を開いているときはライブ表示へ戻す
-    BackHandler(enabled = reviewing) {
-        reviewing = false
-    }
 
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -149,91 +144,78 @@ fun RecordControlScreen() {
         onDispose { PreviewLocator.stop() }
     }
 
-    if (reviewing && session != null) {
-        // レビュー中: 記録は裏で継続したまま、現セッションを再生画面で開く
-        ReplayScreen(
-            sessionDir = session,
-            onBack = { reviewing = false }
-        )
-    } else {
-        Column(Modifier.fillMaxSize()) {
-            // 記録コントロール
+    Column(Modifier.fillMaxSize()) {
+        // 記録コントロール
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(if (isLogging) "● 記録中" else "○ 停止中", fontSize = 13.sp)
+                Text(
+                    if (hasFix) "FIX" else "NO FIX",
+                    fontSize = 13.sp,
+                    color = if (hasFix) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        if (PermissionUtil.hasRequiredForLogging(context)) {
+                            ensureNotificationThenStart(context, notificationPermissionLauncher)
+                        } else {
+                            showPermissionRequired = true
+                        }
+                    },
+                    enabled = !isLogging
+                ) { Text("開始") }
+
+                Button(
+                    onClick = { LoggerService.stop(context) },
+                    enabled = isLogging
+                ) { Text("停止") }
+            }
+        }
+
+        loggingError?.let { message ->
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    Text(if (isLogging) "● 記録中" else "○ 停止中", fontSize = 13.sp)
-                    Text(
-                        if (hasFix) "FIX" else "NO FIX",
-                        fontSize = 13.sp,
-                        color = if (hasFix) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.error
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            if (PermissionUtil.hasRequiredForLogging(context)) {
-                                ensureNotificationThenStart(context, notificationPermissionLauncher)
-                            } else {
-                                showPermissionRequired = true
-                            }
-                        },
-                        enabled = !isLogging
-                    ) { Text("開始") }
-
-                    Button(
-                        onClick = { LoggerService.stop(context) },
-                        enabled = isLogging
-                    ) { Text("停止") }
-
-                    Button(
-                        onClick = { reviewing = true },
-                        enabled = isLogging && session != null
-                    ) { Text("記録確認") }
+                Text(
+                    message,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { GnssStateHolder.setLoggingError(null) }) {
+                    Text("閉じる", fontSize = 12.sp)
                 }
             }
-
-            loggingError?.let { message ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.errorContainer)
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        message,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { GnssStateHolder.setLoggingError(null) }) {
-                        Text("閉じる", fontSize = 12.sp)
-                    }
-                }
-            }
-
-            HorizontalDivider()
-
-            // 上下分割
-            SplitScreen(
-                top = {
-                    TrajectoryPane(
-                        viewSnapshot,
-                        onClearTrack = if (!isLogging) {
-                            { GnssStateHolder.clearTrackPoints() }
-                        } else null
-                    )
-                },
-                bottom = { BottomPager(viewSnapshot) }
-            )
         }
+
+        HorizontalDivider()
+
+        // 上下分割
+        SplitScreen(
+            top = {
+                TrajectoryPane(
+                    viewSnapshot,
+                    onClearTrack = if (!isLogging) {
+                        { GnssStateHolder.clearTrackPoints() }
+                    } else null
+                )
+            },
+            bottom = { BottomPager(viewSnapshot) }
+        )
     }
 
     if (showPermissionRequired) {
