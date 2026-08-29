@@ -44,6 +44,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.platform.LocalContext
 import io.github.eightbrows.gpslogger.BuildConfig
 import androidx.core.net.toUri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @Composable
 fun SettingsScreen() {
@@ -51,6 +57,7 @@ fun SettingsScreen() {
     val useWakeLock by Settings.useWakeLock.collectAsState()
     val coordFormat by Settings.coordFormat.collectAsState()
     val isLogging by GnssStateHolder.isLogging.collectAsState()
+    val context = LocalContext.current
 
     Column(
         Modifier
@@ -212,6 +219,58 @@ fun SettingsScreen() {
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        SectionTitle("権限")
+
+        // 権限の状態を再取得するためのキー（画面復帰時に更新）
+        var permKey by remember { mutableStateOf(0) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) permKey++
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { permKey++ }
+
+        AppPermission.entries.filter { it.isApplicable }.forEach { perm ->
+            val granted = remember(permKey) { PermissionUtil.isGranted(context, perm) }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !granted) {
+                        if (perm.requestable) {
+                            permissionLauncher.launch(perm.manifestName)
+                        } else {
+                            PermissionUtil.openAppSettings(context)
+                        }
+                    }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(perm.label, fontSize = 14.sp)
+                    Text(
+                        perm.description,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+                Text(
+                    if (granted) "許可済み" else "未許可",
+                    fontSize = 13.sp,
+                    color = if (granted) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
+                )
+            }
         }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))

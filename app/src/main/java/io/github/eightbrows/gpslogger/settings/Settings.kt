@@ -37,6 +37,8 @@ object Settings {
     private val _previewColor = MutableStateFlow(DEFAULT_PREVIEW_COLOR)
     val previewColor: StateFlow<Int> = _previewColor.asStateFlow()
 
+    private const val KEY_PERMISSION_NOTICE = "permission_notice_shown"
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext
@@ -55,6 +57,8 @@ object Settings {
         _themeMode.value = ThemeMode.valueOf(
             prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)!!
         )
+
+        _permissionNoticeShown.value = prefs.getBoolean(KEY_PERMISSION_NOTICE, false)
     }
 
     fun setIntervalSec(sec: Int) {
@@ -129,4 +133,12 @@ object Settings {
     }
 
     private const val KEY_THEME_MODE = "theme_mode"
+
+    private val _permissionNoticeShown = MutableStateFlow(false)
+    val permissionNoticeShown: StateFlow<Boolean> = _permissionNoticeShown.asStateFlow()
+
+    fun setPermissionNoticeShown(shown: Boolean) {
+        _permissionNoticeShown.value = shown
+        prefs.edit { putBoolean(KEY_PERMISSION_NOTICE, shown) }
+    }
 }

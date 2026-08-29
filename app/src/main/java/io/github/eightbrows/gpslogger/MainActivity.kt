@@ -58,6 +58,10 @@ import io.github.eightbrows.gpslogger.settings.ThemeMode
 import androidx.compose.foundation.background
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import io.github.eightbrows.gpslogger.settings.PermissionUtil
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +99,7 @@ fun RecordControlScreen() {
 
     val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsState()
     val recordingStartMs by GnssStateHolder.recordingStartMs.collectAsState()
+    var showPermissionRequired by remember { mutableStateOf(false) }
 
     // 最後の測位から5秒以内ならFIX中とみなす
     val hasFix = lastFixNs > 0 &&
@@ -126,14 +131,6 @@ fun RecordControlScreen() {
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { LoggerService.start(context) }
-
-    val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
-        val coarse = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (fine || coarse) ensureNotificationThenStart(context, notificationPermissionLauncher)
-    }
 
     val session = currentSession
 
@@ -180,16 +177,11 @@ fun RecordControlScreen() {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = {
-                            val fine = ContextCompat.checkSelfPermission(
-                                context, Manifest.permission.ACCESS_FINE_LOCATION
-                            ) == PackageManager.PERMISSION_GRANTED
-                            if (fine) ensureNotificationThenStart(context, notificationPermissionLauncher)
-                            else locationPermissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
+                            if (PermissionUtil.hasRequiredForLogging(context)) {
+                                ensureNotificationThenStart(context, notificationPermissionLauncher)
+                            } else {
+                                showPermissionRequired = true
+                            }
                         },
                         enabled = !isLogging
                     ) { Text("開始") }
@@ -243,6 +235,22 @@ fun RecordControlScreen() {
             )
         }
     }
+
+    if (showPermissionRequired) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRequired = false },
+            title = { Text("権限が必要です") },
+            text = {
+                Text(
+                    "記録を開始するには位置情報の権限が必要です。設定タブから許可してください。",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showPermissionRequired = false }) { Text("OK") }
+            }
+        )
+    }
 }
 
 
@@ -271,6 +279,17 @@ private enum class Tab { RECORD, REPLAY, SETTINGS }
 fun AppRoot() {
     var tab by remember { mutableStateOf(Tab.RECORD) }
     var selectedSession by remember { mutableStateOf<java.io.File?>(null) }
+
+    val context = LocalContext.current
+    val noticeShown by Settings.permissionNoticeShown.collectAsState()
+    var showPermissionNotice by remember { mutableStateOf(false) }
+
+    // 初回起動時、権限が未取得なら一度だけ案内
+    LaunchedEffect(Unit) {
+        if (!noticeShown && !PermissionUtil.hasRequiredForLogging(context)) {
+            showPermissionNotice = true
+        }
+    }
 
     // 再生画面を開いているときは一覧へ戻す
     BackHandler(enabled = tab == Tab.REPLAY && selectedSession != null) {
@@ -324,5 +343,34 @@ fun AppRoot() {
                 label = { Text("設定") }
             )
         }
+    }
+
+    if (showPermissionNotice) {
+        AlertDialog(
+            onDismissRequest = {
+                showPermissionNotice = false
+                Settings.setPermissionNoticeShown(true)
+            },
+            title = { Text("権限の許可について") },
+            text = {
+                Text(
+                    "位置情報の記録には権限の許可が必要です。設定タブから許可してください。",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPermissionNotice = false
+                    Settings.setPermissionNoticeShown(true)
+                    tab = Tab.SETTINGS
+                }) { Text("設定へ") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPermissionNotice = false
+                    Settings.setPermissionNoticeShown(true)
+                }) { Text("後で") }
+            }
+        )
     }
 }
