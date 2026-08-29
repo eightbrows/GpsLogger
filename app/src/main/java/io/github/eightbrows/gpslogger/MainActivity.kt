@@ -38,10 +38,7 @@ import io.github.eightbrows.gpslogger.ui.TrajectoryPane
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,9 +56,14 @@ import androidx.compose.foundation.background
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import io.github.eightbrows.gpslogger.settings.PermissionUtil
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.foundation.layout.navigationBarsPadding
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -302,28 +304,48 @@ fun AppRoot() {
             }
         }
 
-        NavigationBar {
-            NavigationBarItem(
-                selected = tab == Tab.RECORD,
-                onClick = { tab = Tab.RECORD },
-                icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
-                label = { Text("記録") }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .navigationBarsPadding()
+                .height(44.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val items = listOf(
+                Triple(Tab.RECORD, Icons.Filled.Timeline, "記録"),
+                Triple(Tab.REPLAY, Icons.Filled.History, "履歴"),
+                Triple(Tab.SETTINGS, Icons.Filled.Settings, "設定")
             )
-            NavigationBarItem(
-                selected = tab == Tab.REPLAY,
-                onClick = {
-                    tab = Tab.REPLAY
-                    selectedSession = null  // タブ切替で一覧に戻す
-                },
-                icon = { Icon(Icons.Filled.History, contentDescription = null) },
-                label = { Text("再生") }
-            )
-            NavigationBarItem(
-                selected = tab == Tab.SETTINGS,
-                onClick = { tab = Tab.SETTINGS },
-                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                label = { Text("設定") }
-            )
+            items.forEach { (t, icon, label) ->
+                val selected = tab == t
+                val color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant
+
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable {
+                            tab = t
+                            if (t == Tab.REPLAY) selectedSession = null
+                        },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(30.dp)
+                    )
+                    Text(
+                        "  $label",
+                        fontSize = 16.sp,
+                        color = color
+                    )
+                }
+            }
         }
     }
 
