@@ -12,7 +12,9 @@ data class TrackPoint(
     val latitude: Double,
     val longitude: Double,
     val altitude: Double,
-    val timeMs: Long
+    val timeMs: Long,
+    /** 一時停止からの再開直後の点か（暗色描画に使う） */
+    val gapBefore: Boolean = false
 )
 
 /** 時刻Tにおける位置＋その瞬間の衛星セット。UIはこれ1つで駆動される。 */
@@ -44,7 +46,7 @@ object GnssStateHolder {
     private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
     val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
-    fun updateLocation(location: Location) {
+    fun updateLocation(location: Location, gapBefore: Boolean = false) {
         _snapshot.value = _snapshot.value.copy(location = location)
         _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
 
@@ -54,7 +56,8 @@ object GnssStateHolder {
                 latitude = location.latitude,
                 longitude = location.longitude,
                 altitude = location.altitude,
-                timeMs = location.time
+                timeMs = location.time,
+                gapBefore = gapBefore
             )
         }
     }

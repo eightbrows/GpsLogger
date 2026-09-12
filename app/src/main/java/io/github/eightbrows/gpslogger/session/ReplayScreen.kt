@@ -134,7 +134,8 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                             latitude = it.latitude,
                             longitude = it.longitude,
                             altitude = it.altitude,
-                            timeMs = it.epochMs
+                            timeMs = it.epochMs,
+                            gapBefore = it.gapBefore
                         )
                     },
                     timeMs = record.epochMs,

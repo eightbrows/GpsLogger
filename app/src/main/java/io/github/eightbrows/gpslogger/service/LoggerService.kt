@@ -42,6 +42,9 @@ class LoggerService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
 
     private var startTimeMs = 0L
+
+    /** 記録開始時の設定間隔（秒）。記録中に設定が変わってもセッション内で固定する */
+    private var sessionIntervalSec = 0
     private var fixCount = 0
     private var notificationHandler: Handler? = null
     private val notificationUpdater = object : Runnable {
@@ -56,8 +59,18 @@ class LoggerService : Service() {
     // 測位結果を受け取る
     private val locationListener = LocationListener { location ->
         val dop = DopCalculator.calculate(latestSats)
-        logWriter?.submit(LogEvent.Fix(location, dop))
-        GnssStateHolder.updateLocation(location)
+        val gapBefore = false   // 一時停止の実装で設定する
+        logWriter?.submit(
+            LogEvent.Fix(
+                location = location,
+                dop = dop,
+                gapBefore = gapBefore,
+                intervalSec = sessionIntervalSec,
+                pressureHpa = null,      // 気圧センサー対応で設定する
+                baroAltitudeM = null
+            )
+        )
+        GnssStateHolder.updateLocation(location, gapBefore)
         GnssStateHolder.updateDop(dop)
         fixCount++
     }
@@ -120,6 +133,7 @@ class LoggerService : Service() {
         try {
             startTimeMs = System.currentTimeMillis()
             fixCount = 0
+            sessionIntervalSec = Settings.intervalSec.value
             GnssStateHolder.setRecordingStart(startTimeMs)
 
             startForeground(NOTIFICATION_ID, buildNotification())
@@ -155,7 +169,7 @@ class LoggerService : Service() {
             // 測位: GPS_PROVIDER、最小間隔1秒・最小距離0m（v1既定）
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
-                Settings.intervalSec.value * 1000L,
+                sessionIntervalSec * 1000L,
                 0f,
                 locationListener,
                 mainLooper

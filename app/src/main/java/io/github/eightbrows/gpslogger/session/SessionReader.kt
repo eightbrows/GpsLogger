@@ -18,7 +18,15 @@ data class TrackRecord(
     val speed: Float,
     val bearing: Float,
     val bearingAccuracy: Float,
-    val dop: Dop?
+    val dop: Dop?,
+    /** 一時停止からの再開直後の点か */
+    val gapBefore: Boolean,
+    /** 記録時の設定間隔（秒）。読めなければ0 */
+    val intervalSec: Int,
+    /** 気圧センサーの生値（hPa）。空欄なら null */
+    val pressureHpa: Float?,
+    /** 気圧から算出した高度（m）。空欄なら null */
+    val baroAltitudeM: Double?
 )
 
 /** sats.csv の1エポック分 */
@@ -95,7 +103,7 @@ object SessionReader {
         file.bufferedReader().useLines { lines ->
             lines.drop(1).forEach { line ->
                 val c = line.split(',')
-                if (c.size < 19) {
+                if (c.size < TRACK_COLUMNS) {
                     if (line.isNotBlank()) skipped++
                     return@forEach
                 }
@@ -112,7 +120,11 @@ object SessionReader {
                             speed = c[9].toFloatOrNull() ?: 0f,
                             bearing = c[11].toFloatOrNull() ?: 0f,
                             bearingAccuracy = c[12].toFloatOrNull() ?: 0f,
-                            dop = parseDop(c)
+                            dop = parseDop(c),
+                            gapBefore = c[19].trim().toBoolean(),
+                            intervalSec = c[20].trim().toIntOrNull() ?: 0,
+                            pressureHpa = c[21].trim().toFloatOrNull(),
+                            baroAltitudeM = c[22].trim().toDoubleOrNull()
                         )
                     )
                 }.onFailure { skipped++ }
@@ -192,6 +204,9 @@ object SessionReader {
         "IRNSS" -> CONSTELLATION_IRNSS
         else -> android.location.GnssStatus.CONSTELLATION_UNKNOWN
     }
+
+    /** track.csv v2 の列数。これ未満の行は読み飛ばす（v1データは読めない） */
+    private const val TRACK_COLUMNS = 23
 
     private const val TAG = "SessionReader"
 }
