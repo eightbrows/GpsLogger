@@ -40,10 +40,14 @@ import androidx.compose.runtime.collectAsState
 import io.github.eightbrows.gpslogger.settings.CoordFormat
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.material.icons.filled.Delete
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 private const val MIN_ZOOM = 0.1f
+
+/** 間引き後の描画点。中断区間の判定のため gapBefore を座標と一緒に持ち回る */
+private data class ScreenPoint(val pos: Offset, val gapBefore: Boolean)
 
 /** 描画時に算出した追従位置を、ジェスチャ処理へ渡すための入れ物（状態ではない） */
 private class TrajViewState {
@@ -71,6 +75,8 @@ fun TrajectoryPane(
     val recordingColor by Settings.recordingColor.collectAsState()
     val previewColor by Settings.previewColor.collectAsState()
     val lineColor = Color(if (snapshot.isRecording) recordingColor else previewColor)
+    // 一時停止で中断した区間の色。背景へ寄せることで明暗どちらのテーマでも沈みすぎない
+    val gapColor = lerp(lineColor, MaterialTheme.colorScheme.background, 0.6f)
     val currentColor = MaterialTheme.colorScheme.error
     val startColor = MaterialTheme.colorScheme.outlineVariant
 
@@ -238,35 +244,55 @@ fun TrajectoryPane(
                     dms = (coordFormat == CoordFormat.DMS)
                 )
 
-                // 縮尺連動の間引き
+                // 縮尺連動の間引き。
+                // 中断区間は「同じ場所で止まって再開」が典型で前の点とほぼ同座標になるため、
+                // gapBefore の点だけは間引かずに必ず残す（消すと中断区間が描かれない）
                 val minPixelGap = 2.dp.toPx()
-                val screenPoints = ArrayList<Offset>(points.size)
+                val screenPoints = ArrayList<ScreenPoint>(points.size)
                 var last: Offset? = null
                 points.forEach { pt ->
                     val p = toScreen(pt.latitude, pt.longitude)
                     val prev = last
-                    if (prev == null ||
+                    if (prev == null || pt.gapBefore ||
                         abs(p.x - prev.x) >= minPixelGap || abs(p.y - prev.y) >= minPixelGap
                     ) {
-                        screenPoints.add(p)
+                        screenPoints.add(ScreenPoint(p, pt.gapBefore))
                         last = p
                     }
                 }
-                val lastRaw = toScreen(points.last().latitude, points.last().longitude)
-                if (screenPoints.lastOrNull() != lastRaw) screenPoints.add(lastRaw)
+                val lastPoint = points.last()
+                val lastRaw = toScreen(lastPoint.latitude, lastPoint.longitude)
+                if (screenPoints.lastOrNull()?.pos != lastRaw) {
+                    screenPoints.add(ScreenPoint(lastRaw, lastPoint.gapBefore))
+                }
 
                 if (screenPoints.size >= 2) {
-                    val path = Path().apply {
-                        moveTo(screenPoints[0].x, screenPoints[0].y)
-                        for (i in 1 until screenPoints.size) {
-                            lineTo(screenPoints[i].x, screenPoints[i].y)
+                    val strokeWidth =
+                        if (snapshot.isRecording) 2.5.dp.toPx() else 1.5.dp.toPx()
+
+                    // 通常区間は連続するかたまりごとに1本の線にして継ぎ目を保つ。
+                    // 中断区間はその都度独立した線分として積む
+                    val trackPath = Path()
+                    val gapPath = Path()
+                    var penDown = false
+                    for (i in 1 until screenPoints.size) {
+                        val from = screenPoints[i - 1].pos
+                        val to = screenPoints[i].pos
+                        if (screenPoints[i].gapBefore) {
+                            gapPath.moveTo(from.x, from.y)
+                            gapPath.lineTo(to.x, to.y)
+                            penDown = false
+                        } else {
+                            if (!penDown) {
+                                trackPath.moveTo(from.x, from.y)
+                                penDown = true
+                            }
+                            trackPath.lineTo(to.x, to.y)
                         }
                     }
-                    drawPath(
-                        path,
-                        lineColor,
-                        style = Stroke(width = if (snapshot.isRecording) 2.5.dp.toPx() else 1.5.dp.toPx())
-                    )
+
+                    drawPath(gapPath, gapColor, style = Stroke(width = strokeWidth))
+                    drawPath(trackPath, lineColor, style = Stroke(width = strokeWidth))
                 }
 
                 // 選択点に十字線（再生・レビュー時のみ）
@@ -288,7 +314,7 @@ fun TrajectoryPane(
                     )
                 }
 
-                drawCircle(startColor, 4.dp.toPx(), screenPoints.first())
+                drawCircle(startColor, 4.dp.toPx(), screenPoints.first().pos)
                 drawCircle(currentColor, 5.dp.toPx(), toScreen(focus.latitude, focus.longitude))
 
                 MapGrid.drawScaleBar(
