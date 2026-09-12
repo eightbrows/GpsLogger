@@ -34,6 +34,13 @@ object GnssStateHolder {
     private val _isLogging = MutableStateFlow(false)
     val isLogging: StateFlow<Boolean> = _isLogging.asStateFlow()
 
+    /**
+     * 一時停止中か。記録は継続扱いなので isLogging は true のまま。
+     * （false にすると PreviewLocator が起動してしまう）
+     */
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+
     /** 記録中セッションのフォルダ。停止中は null */
     private val _currentSessionDir = MutableStateFlow<java.io.File?>(null)
     val currentSessionDir: StateFlow<java.io.File?> = _currentSessionDir.asStateFlow()
@@ -68,6 +75,11 @@ object GnssStateHolder {
 
     fun setLogging(logging: Boolean) {
         _isLogging.value = logging
+    }
+
+    /** reset() では戻らない。停止時にサービスが明示的に false を入れる */
+    fun setPaused(paused: Boolean) {
+        _isPaused.value = paused
     }
 
     /** 記録開始時にリセット */

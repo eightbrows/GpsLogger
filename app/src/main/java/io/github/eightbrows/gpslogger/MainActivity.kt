@@ -61,6 +61,8 @@ import io.github.eightbrows.gpslogger.settings.PermissionUtil
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -93,6 +95,7 @@ class MainActivity : ComponentActivity() {
 fun RecordControlScreen() {
     val context = LocalContext.current
     val isLogging by GnssStateHolder.isLogging.collectAsState()
+    val isPaused by GnssStateHolder.isPaused.collectAsState()
     val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
@@ -157,7 +160,14 @@ fun RecordControlScreen() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(if (isLogging) "● 記録中" else "○ 停止中", fontSize = 13.sp)
+                Text(
+                    when {
+                        isPaused -> "⏸ 一時停止中"
+                        isLogging -> "● 記録中"
+                        else -> "○ 停止中"
+                    },
+                    fontSize = 13.sp
+                )
                 Text(
                     if (hasFix) "FIX" else "NO FIX",
                     fontSize = 13.sp,
@@ -165,7 +175,9 @@ fun RecordControlScreen() {
                     else MaterialTheme.colorScheme.error
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ボタン3つを狭い画面にも収めるため、左右の余白を詰める
+            val compactPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Button(
                     onClick = {
                         if (PermissionUtil.hasRequiredForLogging(context)) {
@@ -174,12 +186,25 @@ fun RecordControlScreen() {
                             showPermissionRequired = true
                         }
                     },
-                    enabled = !isLogging
+                    enabled = !isLogging,
+                    contentPadding = compactPadding
                 ) { Text("開始") }
 
                 Button(
+                    onClick = {
+                        if (isPaused) LoggerService.resume(context)
+                        else LoggerService.pause(context)
+                    },
+                    enabled = isLogging,
+                    contentPadding = compactPadding,
+                    // 「一時停止」と「再開」で幅が変わらないよう固定する
+                    modifier = Modifier.width(92.dp)
+                ) { Text(if (isPaused) "再開" else "一時停止") }
+
+                Button(
                     onClick = { LoggerService.stop(context) },
-                    enabled = isLogging
+                    enabled = isLogging,
+                    contentPadding = compactPadding
                 ) { Text("停止") }
             }
         }

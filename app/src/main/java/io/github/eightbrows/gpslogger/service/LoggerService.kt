@@ -33,7 +33,15 @@ import io.github.eightbrows.gpslogger.R
 class LoggerService : Service() {
 
     private lateinit var locationManager: LocationManager
-    private var isLogging = false
+
+    /** LogWriterとセッションが生きているか。停止まで true（一時停止中も true） */
+    private var sessionActive = false
+
+    /** LocationManagerのコールバックが登録中か。一時停止で false */
+    private var updatesActive = false
+
+    /** 再開直後の最初の測位点に gap_before を立てるためのフラグ */
+    private var pendingGapBefore = false
 
     /** stopLogging() を経て停止したか。異常破棄との区別に使う */
     private var stopRequested = false
@@ -59,7 +67,9 @@ class LoggerService : Service() {
     // 測位結果を受け取る
     private val locationListener = LocationListener { location ->
         val dop = DopCalculator.calculate(latestSats)
-        val gapBefore = false   // 一時停止の実装で設定する
+        // 再開直後の1点だけ true になる
+        val gapBefore = pendingGapBefore
+        pendingGapBefore = false
         logWriter?.submit(
             LogEvent.Fix(
                 location = location,
@@ -121,14 +131,22 @@ class LoggerService : Service() {
         when (intent?.action) {
             ACTION_START -> startLogging()
             ACTION_STOP -> stopLogging()
+            ACTION_PAUSE -> pauseLogging()
+            ACTION_RESUME -> resumeLogging()
+            else -> {
+                // 未知のアクション。startForegroundを呼ばないまま生き残らないようにする
+                Log.w(TAG, "unknown action: ${intent?.action}")
+                if (!sessionActive) stopSelf()
+            }
         }
         return START_NOT_STICKY
     }
 
     @SuppressLint("MissingPermission") // 呼び出し側で位置許可を確認済み
     private fun startLogging() {
-        if (isLogging) return
+        if (sessionActive) return   // 記録中・一時停止中はどちらも無視する
         stopRequested = false
+        pendingGapBefore = false
 
         try {
             startTimeMs = System.currentTimeMillis()
@@ -157,8 +175,10 @@ class LoggerService : Service() {
                 GnssStateHolder.setLoggingError(message)
             }.also { it.start() }
             satEpochId = 0L
+            sessionActive = true
             GnssStateHolder.reset()
             GnssStateHolder.setLogging(true)
+            GnssStateHolder.setPaused(false)   // reset()では消えないので明示的に戻す
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
             stopSelf()
@@ -166,31 +186,11 @@ class LoggerService : Service() {
         }
 
         try {
-            // 測位: GPS_PROVIDER、最小間隔1秒・最小距離0m（v1既定）
-            locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                sessionIntervalSec * 1000L,
-                0f,
-                locationListener,
-                mainLooper
-            )
-            // 衛星状態
-            locationManager.registerGnssStatusCallback(
-                gnssStatusCallback,
-                Handler(mainLooper)
-            )
-            isLogging = true
+            startLocationUpdates()
             notificationHandler = Handler(mainLooper).also {
                 it.postDelayed(notificationUpdater, 1000L)
             }
-            if (Settings.useWakeLock.value) {
-                val pm = getSystemService(PowerManager::class.java)
-                wakeLock = pm.newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK,
-                    "GpsLogger::LoggingWakeLock"
-                ).also { it.acquire(WAKELOCK_TIMEOUT_MS) }
-                Log.d(TAG, "wakelock acquired")
-            }
+            acquireWakeLockIfEnabled()
             Log.d(TAG, "logging started")
         } catch (e: SecurityException) {
             Log.e(TAG, "location permission missing", e)
@@ -198,32 +198,124 @@ class LoggerService : Service() {
         }
     }
 
+    /** 一時停止。測位だけ止め、ライターとセッションは保持する */
+    private fun pauseLogging() {
+        if (!sessionActive) {
+            // サービスが動いていない状態での要求。通知を出さないまま残らないよう終了する
+            Log.w(TAG, "pause requested while inactive")
+            stopSelf()
+            return
+        }
+        if (!updatesActive) return   // すでに一時停止中
+
+        stopLocationUpdates()
+        logWriter?.flushNow()         // しばらく放置されるのでバッファを確定させる
+        releaseWakeLock()
+        latestSats = emptyList()      // 通知に古い衛星数を残さない
+        GnssStateHolder.setPaused(true)
+        updateNotification()
+        Log.d(TAG, "logging paused")
+    }
+
+    /** 再開。同じセッション・同じライターに書き込みを続ける */
+    private fun resumeLogging() {
+        if (!sessionActive) {
+            Log.w(TAG, "resume requested while inactive")
+            stopSelf()
+            return
+        }
+        if (updatesActive) return    // すでに記録中
+
+        try {
+            startLocationUpdates()
+        } catch (e: SecurityException) {
+            Log.e(TAG, "location permission missing", e)
+            GnssStateHolder.setLoggingError("位置情報の権限がありません")
+            stopLogging()
+            return
+        }
+        pendingGapBefore = true      // 再開後の最初の1点に gap_before を立てる
+        acquireWakeLockIfEnabled()
+        GnssStateHolder.setPaused(false)
+        updateNotification()
+        Log.d(TAG, "logging resumed")
+    }
+
+    @SuppressLint("MissingPermission") // 呼び出し側で位置許可を確認済み
+    private fun startLocationUpdates() {
+        // 測位: GPS_PROVIDER、最小距離0m。間隔はセッション開始時の設定で固定
+        locationManager.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            sessionIntervalSec * 1000L,
+            0f,
+            locationListener,
+            mainLooper
+        )
+        // 衛星登録で失敗しても解除できるよう、ここで立てておく
+        updatesActive = true
+        // 衛星状態
+        locationManager.registerGnssStatusCallback(
+            gnssStatusCallback,
+            Handler(mainLooper)
+        )
+    }
+
+    private fun stopLocationUpdates() {
+        if (!updatesActive) return
+        locationManager.removeUpdates(locationListener)
+        locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+        updatesActive = false
+    }
+
+    /**
+     * WakeLockを取得する。タイムアウトは記録開始からの残り時間。
+     * 再開のたびに上限12時間が延びるのを防ぐ。
+     */
+    private fun acquireWakeLockIfEnabled() {
+        if (!Settings.useWakeLock.value || wakeLock != null) return
+        val remaining = WAKELOCK_TIMEOUT_MS - (System.currentTimeMillis() - startTimeMs)
+        if (remaining <= 0L) {
+            Log.d(TAG, "wakelock budget exhausted; not acquiring")
+            return
+        }
+        val pm = getSystemService(PowerManager::class.java)
+        wakeLock = pm.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "GpsLogger::LoggingWakeLock"
+        ).also { it.acquire(remaining) }
+        Log.d(TAG, "wakelock acquired for ${remaining}ms")
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
+    }
+
     /**
      * 測位コールバック・通知更新・WakeLock・ライターをまとめて片付ける。
      * stopLogging() と onDestroy() の共通処理。何度呼んでも安全。
      */
     private fun releaseResources() {
-        if (isLogging) {
-            locationManager.removeUpdates(locationListener)
-            locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
-            isLogging = false
-        }
+        stopLocationUpdates()
         notificationHandler?.removeCallbacks(notificationUpdater)
         notificationHandler = null
-        wakeLock?.let { if (it.isHeld) it.release() }
-        wakeLock = null
-        // ライターは isLogging と切り離して必ず閉じる（未flush分の取りこぼしを防ぐ）
+        releaseWakeLock()
+        // ライターは updatesActive と切り離して必ず閉じる。
+        // 一時停止中に停止しても未flush分を取りこぼさない
         logWriter?.stop()
         logWriter = null
+        sessionActive = false
+        pendingGapBefore = false
     }
 
     private fun stopLogging() {
         stopRequested = true
-        val wasActive = isLogging || logWriter != null
+        val wasActive = sessionActive || logWriter != null
         releaseResources()
         if (wasActive) {
             Log.d(TAG, "logging stopped")
             GnssStateHolder.setLogging(false)
+            GnssStateHolder.setPaused(false)
             GnssStateHolder.setCurrentSession(null)
             GnssStateHolder.reset()
             GnssStateHolder.setRecordingStart(0L)
@@ -249,12 +341,18 @@ class LoggerService : Service() {
         val s = elapsedSec % 60
         val elapsed = "%02d:%02d:%02d".format(h, m, s)
 
+        val paused = sessionActive && !updatesActive
         val usedSats = latestSats.count { it.usedInFix }
         val fixState = if (usedSats >= 4) "FIX" else "NO FIX"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("位置記録中  $elapsed")
-            .setContentText("$fixState ・ ${fixCount}点 ・ 衛星 $usedSats")
+            .setContentTitle(
+                if (paused) "一時停止中  $elapsed" else "位置記録中  $elapsed"
+            )
+            .setContentText(
+                if (paused) "${fixCount}点 ・ 測位停止中"
+                else "$fixState ・ ${fixCount}点 ・ 衛星 $usedSats"
+            )
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -289,6 +387,7 @@ class LoggerService : Service() {
             // reset() は呼ばない（軌跡を消さずに残す）
             Log.w(TAG, "destroyed without stop request; clearing logging state")
             GnssStateHolder.setLogging(false)
+            GnssStateHolder.setPaused(false)
             GnssStateHolder.setCurrentSession(null)
             GnssStateHolder.setRecordingStart(0L)
         }
@@ -300,6 +399,8 @@ class LoggerService : Service() {
         private const val TAG = "LoggerService"
         const val ACTION_START = "io.github.eightbrows.gpslogger.START"
         const val ACTION_STOP = "io.github.eightbrows.gpslogger.STOP"
+        const val ACTION_PAUSE = "io.github.eightbrows.gpslogger.PAUSE"
+        const val ACTION_RESUME = "io.github.eightbrows.gpslogger.RESUME"
         private const val CHANNEL_ID = "logging_status"
         private const val NOTIFICATION_ID = 1
 
@@ -313,6 +414,16 @@ class LoggerService : Service() {
 
         fun stop(context: Context) {
             val intent = Intent(context, LoggerService::class.java).setAction(ACTION_STOP)
+            context.startService(intent)
+        }
+
+        fun pause(context: Context) {
+            val intent = Intent(context, LoggerService::class.java).setAction(ACTION_PAUSE)
+            context.startService(intent)
+        }
+
+        fun resume(context: Context) {
+            val intent = Intent(context, LoggerService::class.java).setAction(ACTION_RESUME)
             context.startService(intent)
         }
     }
