@@ -34,6 +34,9 @@ class LoggerService : Service() {
 
     private lateinit var locationManager: LocationManager
     private var isLogging = false
+
+    /** stopLogging() を経て停止したか。異常破棄との区別に使う */
+    private var stopRequested = false
     private var logWriter: LogWriter? = null
     private var satEpochId = 0L
     private var wakeLock: PowerManager.WakeLock? = null
@@ -112,6 +115,7 @@ class LoggerService : Service() {
     @SuppressLint("MissingPermission") // 呼び出し側で位置許可を確認済み
     private fun startLogging() {
         if (isLogging) return
+        stopRequested = false
 
         try {
             startTimeMs = System.currentTimeMillis()
@@ -180,17 +184,30 @@ class LoggerService : Service() {
         }
     }
 
-    private fun stopLogging() {
+    /**
+     * 測位コールバック・通知更新・WakeLock・ライターをまとめて片付ける。
+     * stopLogging() と onDestroy() の共通処理。何度呼んでも安全。
+     */
+    private fun releaseResources() {
         if (isLogging) {
             locationManager.removeUpdates(locationListener)
             locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
-            notificationHandler?.removeCallbacks(notificationUpdater)
-            notificationHandler = null
-            wakeLock?.let { if (it.isHeld) it.release() }
-            wakeLock = null
-            logWriter?.stop()
-            logWriter = null
             isLogging = false
+        }
+        notificationHandler?.removeCallbacks(notificationUpdater)
+        notificationHandler = null
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
+        // ライターは isLogging と切り離して必ず閉じる（未flush分の取りこぼしを防ぐ）
+        logWriter?.stop()
+        logWriter = null
+    }
+
+    private fun stopLogging() {
+        stopRequested = true
+        val wasActive = isLogging || logWriter != null
+        releaseResources()
+        if (wasActive) {
             Log.d(TAG, "logging stopped")
             GnssStateHolder.setLogging(false)
             GnssStateHolder.setCurrentSession(null)
@@ -248,16 +265,19 @@ class LoggerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 想定外の破棄でもコールバックを確実に解除
-        if (isLogging) {
-            locationManager.removeUpdates(locationListener)
-            locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
-            notificationHandler?.removeCallbacks(notificationUpdater)
-            notificationHandler = null
-            isLogging = false
+        // 想定外の破棄でも、コールバック解除とライターのクローズを確実に行う。
+        // stopLogging() 経由なら片付け済みなので、ここは実質no-opになる。
+        releaseResources()
+
+        if (!stopRequested) {
+            // stopLogging() を経ていない破棄（システムによる回収など）。
+            // プロセスが生き残ると画面が「記録中」のまま固まるため、記録状態だけ戻す。
+            // reset() は呼ばない（軌跡を消さずに残す）
+            Log.w(TAG, "destroyed without stop request; clearing logging state")
+            GnssStateHolder.setLogging(false)
+            GnssStateHolder.setCurrentSession(null)
+            GnssStateHolder.setRecordingStart(0L)
         }
-        wakeLock?.let { if (it.isHeld) it.release() }
-        wakeLock = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

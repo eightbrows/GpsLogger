@@ -19,6 +19,7 @@ class LogWriter(
     private val queue = LinkedBlockingQueue<LogEvent>()
     private var thread: Thread? = null
     @Volatile private var running = false
+    @Volatile private var flushRequested = false
 
     private val utcFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
         timeZone = java.util.TimeZone.getTimeZone("UTC")
@@ -38,6 +39,15 @@ class LogWriter(
 
     fun submit(event: LogEvent) {
         if (running) queue.offer(event)
+    }
+
+    /**
+     * 任意のタイミングでflushを要求する。
+     * 実際の書き出しはwriterスレッドが行うため、呼び出しスレッドはブロックしない。
+     * 反映はポーリング周期（最大1秒）以内。
+     */
+    fun flushNow() {
+        if (running) flushRequested = true
     }
 
     fun stop() {
@@ -79,11 +89,14 @@ class LogWriter(
                 }
 
                 val now = System.currentTimeMillis()
-                if (now - lastFlush >= FLUSH_INTERVAL_MS) {
+                val onDemand = flushRequested
+                if (onDemand || now - lastFlush >= FLUSH_INTERVAL_MS) {
+                    // 先に降ろす。flush中に届いた要求は次の周回で拾う
+                    flushRequested = false
                     trackWriter.flush()
                     satsWriter.flush()
                     lastFlush = now
-                    Log.d(TAG, "flushed")
+                    Log.d(TAG, if (onDemand) "flushed (on demand)" else "flushed")
                 }
             }
         } catch (e: Exception) {
