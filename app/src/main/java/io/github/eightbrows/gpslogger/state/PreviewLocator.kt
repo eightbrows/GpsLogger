@@ -22,7 +22,11 @@ object PreviewLocator {
     private var active = false
 
     private val locationListener = LocationListener { location ->
-        GnssStateHolder.updateLocation(location)
+        // プレビュー中も画面側が気圧を購読しているので、同じく最新値を積む
+        GnssStateHolder.updateLocation(
+            location,
+            pressureHpa = BarometerReader.pressureHpa.value
+        )
     }
 
     private val gnssStatusCallback = object : GnssStatus.Callback() {

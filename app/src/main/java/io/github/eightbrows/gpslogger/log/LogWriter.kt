@@ -148,8 +148,7 @@ class LogWriter(
 
         sb.append(e.gapBefore).append(',')
         sb.append(e.intervalSec).append(',')
-        sb.append(e.pressureHpa?.toString() ?: "").append(',')
-        sb.append(e.baroAltitudeM?.toString() ?: "")
+        sb.append(e.pressureHpa?.toString() ?: "")
         w.write(sb.toString())
         w.newLine()
     }
@@ -193,12 +192,12 @@ class LogWriter(
         private const val BUFFER_SIZE = 128 * 1024      // 128KB
         private const val FLUSH_INTERVAL_MS = 30_000L   // 30秒
 
-        /** track.csv v2（23列）。v1（19列）とは互換性なし */
+        /** track.csv v2（22列）。v1（19列）とは互換性なし */
         private const val TRACK_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
                     "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
                     "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock," +
-                    "gap_before,interval_sec,pressure_hpa,baro_altitude_m"
+                    "gap_before,interval_sec,pressure_hpa"
 
         private const val SATS_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,epoch_id,constellation,svid," +

@@ -24,6 +24,7 @@ import io.github.eightbrows.gpslogger.log.LogEvent
 import io.github.eightbrows.gpslogger.log.LogWriter
 import io.github.eightbrows.gpslogger.settings.Settings
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
+import io.github.eightbrows.gpslogger.state.BarometerReader
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,17 +71,18 @@ class LoggerService : Service() {
         // 再開直後の1点だけ true になる
         val gapBefore = pendingGapBefore
         pendingGapBefore = false
+        // 測位が来た時点の最新値。CSVと軌跡に同じ値を積む（未取得なら null）
+        val pressureHpa = BarometerReader.pressureHpa.value
         logWriter?.submit(
             LogEvent.Fix(
                 location = location,
                 dop = dop,
                 gapBefore = gapBefore,
                 intervalSec = sessionIntervalSec,
-                pressureHpa = null,      // 気圧センサー対応で設定する
-                baroAltitudeM = null
+                pressureHpa = pressureHpa
             )
         )
-        GnssStateHolder.updateLocation(location, gapBefore)
+        GnssStateHolder.updateLocation(location, gapBefore, pressureHpa)
         GnssStateHolder.updateDop(dop)
         fixCount++
     }
@@ -258,12 +260,15 @@ class LoggerService : Service() {
             gnssStatusCallback,
             Handler(mainLooper)
         )
+        // 気圧も測位と同じ区間だけ購読する
+        BarometerReader.start(this, owner = this)
     }
 
     private fun stopLocationUpdates() {
         if (!updatesActive) return
         locationManager.removeUpdates(locationListener)
         locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
+        BarometerReader.stop(owner = this)
         updatesActive = false
     }
 

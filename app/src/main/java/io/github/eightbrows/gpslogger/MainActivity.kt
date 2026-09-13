@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.settings.SettingsScreen
 import io.github.eightbrows.gpslogger.state.PreviewLocator
+import io.github.eightbrows.gpslogger.state.BarometerReader
 import androidx.compose.foundation.isSystemInDarkTheme
 import io.github.eightbrows.gpslogger.settings.ThemeMode
 import androidx.compose.foundation.background
@@ -96,6 +97,7 @@ fun RecordControlScreen() {
     val context = LocalContext.current
     val isLogging by GnssStateHolder.isLogging.collectAsState()
     val isPaused by GnssStateHolder.isPaused.collectAsState()
+    val pressureHpa by BarometerReader.pressureHpa.collectAsState()
     val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
@@ -121,6 +123,7 @@ fun RecordControlScreen() {
         bearingAccuracy = holderSnapshot.location?.bearingAccuracyDegrees ?: 0f,
         satellites = holderSnapshot.satellites,
         dop = holderSnapshot.dop,
+        pressureHpa = pressureHpa,
         trackPoints = trackPoints,
         timeMs = holderSnapshot.location?.time ?: 0L,
         markerIndex = null,
@@ -148,6 +151,13 @@ fun RecordControlScreen() {
         }
 
         onDispose { PreviewLocator.stop() }
+    }
+
+    // 気圧も PreviewLocator と同じく、記録していない間だけ画面側で購読する。
+    // 記録中はサービスが購読し、一時停止中はどちらも購読しない（表示は「—」）
+    androidx.compose.runtime.DisposableEffect(isLogging) {
+        if (!isLogging) BarometerReader.start(context, owner = PreviewLocator)
+        onDispose { BarometerReader.stop(owner = PreviewLocator) }
     }
 
     Column(Modifier.fillMaxSize()) {

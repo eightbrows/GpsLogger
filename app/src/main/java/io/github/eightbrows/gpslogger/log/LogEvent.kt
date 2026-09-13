@@ -12,9 +12,7 @@ sealed interface LogEvent {
         /** 記録時の設定間隔（秒）。0は未設定 */
         val intervalSec: Int = 0,
         /** 気圧センサーの生値（hPa）。未取得は null */
-        val pressureHpa: Float? = null,
-        /** 気圧から算出した高度（m）。未算出は null */
-        val baroAltitudeM: Double? = null
+        val pressureHpa: Float? = null
     ) : LogEvent
 
     data class Sats(

@@ -14,7 +14,9 @@ data class TrackPoint(
     val altitude: Double,
     val timeMs: Long,
     /** 一時停止からの再開直後の点か（暗色描画に使う） */
-    val gapBefore: Boolean = false
+    val gapBefore: Boolean = false,
+    /** 測位時点の気圧の生値（hPa）。高度は表示時に基準気圧から計算する */
+    val pressureHpa: Float? = null
 )
 
 /** 時刻Tにおける位置＋その瞬間の衛星セット。UIはこれ1つで駆動される。 */
@@ -53,7 +55,11 @@ object GnssStateHolder {
     private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
     val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
-    fun updateLocation(location: Location, gapBefore: Boolean = false) {
+    fun updateLocation(
+        location: Location,
+        gapBefore: Boolean = false,
+        pressureHpa: Float? = null
+    ) {
         _snapshot.value = _snapshot.value.copy(location = location)
         _lastFixElapsedNs.value = android.os.SystemClock.elapsedRealtimeNanos()
 
@@ -64,7 +70,8 @@ object GnssStateHolder {
                 longitude = location.longitude,
                 altitude = location.altitude,
                 timeMs = location.time,
-                gapBefore = gapBefore
+                gapBefore = gapBefore,
+                pressureHpa = pressureHpa
             )
         }
     }
@@ -132,6 +139,8 @@ data class ViewSnapshot(
     val bearingAccuracy: Float = 0f,
     val satellites: List<LogEvent.Sat> = emptyList(),
     val dop: Dop? = null,
+    /** 気圧の生値（hPa）。高度は表示時に基準気圧から計算する */
+    val pressureHpa: Float? = null,
     val trackPoints: List<TrackPoint> = emptyList(),
     val timeMs: Long = 0L,
     val markerIndex: Int? = null,  // 再生時の選択位置。nullなら末尾＝現在地

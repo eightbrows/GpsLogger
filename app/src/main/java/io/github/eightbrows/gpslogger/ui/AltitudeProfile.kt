@@ -32,6 +32,12 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
+import io.github.eightbrows.gpslogger.state.BarometerReader
 
 
 @Composable
@@ -44,6 +50,13 @@ fun AltitudePage(
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.outline
     val markerColor = MaterialTheme.colorScheme.error
+    val baroColor = MaterialTheme.colorScheme.tertiary
+
+    // 気圧高度（m）。生値から都度計算し、気圧が無い点は null。points と同じ並び
+    val baroAlts: List<Double?> = remember(points) {
+        points.map { p -> p.pressureHpa?.let { BarometerReader.altitudeM(it).toDouble() } }
+    }
+    val hasBaro = baroAlts.any { it != null }
 
     // 横軸のズームと移動（0.0〜1.0 の表示範囲）
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -116,15 +129,20 @@ fun AltitudePage(
             val viewEnd = t0All + (dtAll * (offset + 1f / zoom)).toLong()
             val dtView = max((viewEnd - viewStart).toDouble(), 1.0)
 
-            // 表示範囲内の点だけで高度レンジを決める
-            val visible = points.filter { it.timeMs in viewStart..viewEnd }
-            val target = if (visible.size >= 2) visible else points
+            // 表示範囲内の点だけで高度レンジを決める（GPS・気圧の両方を含めて1つの縦軸にする）
+            val useAll = points.count { it.timeMs in viewStart..viewEnd } < 2
 
             var minAlt = Double.MAX_VALUE
             var maxAlt = -Double.MAX_VALUE
-            target.forEach {
-                if (it.altitude < minAlt) minAlt = it.altitude
-                if (it.altitude > maxAlt) maxAlt = it.altitude
+            fun include(alt: Double) {
+                if (alt < minAlt) minAlt = alt
+                if (alt > maxAlt) maxAlt = alt
+            }
+            points.forEachIndexed { i, p ->
+                if (useAll || p.timeMs in viewStart..viewEnd) {
+                    include(p.altitude)
+                    baroAlts[i]?.let { include(it) }
+                }
             }
             val span = max(maxAlt - minAlt, 1.0)
             val pad = span * 0.05
@@ -157,14 +175,37 @@ fun AltitudePage(
                 )
             }
 
-            // 折れ線（表示範囲の前後1点を含めて線を繋ぐ）
+            // 表示範囲の点と、その前後1点（画面端まで線を繋ぐため）
+            fun nearView(i: Int): Boolean {
+                val prevIn = i > 0 && points[i - 1].timeMs in viewStart..viewEnd
+                val inRange = points[i].timeMs in viewStart..viewEnd
+                val nextIn = i < points.size - 1 && points[i + 1].timeMs in viewStart..viewEnd
+                return inRange || prevIn || nextIn
+            }
+
+            // 気圧高度の折れ線。気圧が無い点で線を切り、前後を直線で結ばない。
+            // GPS の線を上に重ねるため先に描く
+            if (hasBaro) {
+                val baroPath = Path()
+                var penDown = false
+                points.forEachIndexed { i, p ->
+                    val b = baroAlts[i]
+                    if (b == null || !nearView(i)) {
+                        penDown = false
+                        return@forEachIndexed
+                    }
+                    val x = toX(p.timeMs)
+                    val y = toY(b)
+                    if (!penDown) { baroPath.moveTo(x, y); penDown = true } else baroPath.lineTo(x, y)
+                }
+                drawPath(baroPath, baroColor, style = Stroke(width = 1.5.dp.toPx()))
+            }
+
+            // GPS高度の折れ線（表示範囲の前後1点を含めて線を繋ぐ）
             val path = Path()
             var started = false
             points.forEachIndexed { i, p ->
-                val prevIn = i > 0 && points[i - 1].timeMs in viewStart..viewEnd
-                val inRange = p.timeMs in viewStart..viewEnd
-                val nextIn = i < points.size - 1 && points[i + 1].timeMs in viewStart..viewEnd
-                if (inRange || prevIn || nextIn) {
+                if (nearView(i)) {
                     val x = toX(p.timeMs)
                     val y = toY(p.altitude)
                     if (!started) { path.moveTo(x, y); started = true } else path.lineTo(x, y)
@@ -213,12 +254,25 @@ fun AltitudePage(
         // 高度範囲と倍率
         val minA = points.minOf { it.altitude }
         val maxA = points.maxOf { it.altitude }
-        Text(
-            "%.1f 〜 %.1f m  ×%.1f".format(minA, maxA, zoom),
-            Modifier.align(Alignment.TopStart).padding(8.dp),
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.outline
-        )
+        Column(Modifier.align(Alignment.TopStart).padding(8.dp)) {
+            Text(
+                "%.1f 〜 %.1f m  ×%.1f".format(minA, maxA, zoom),
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.outline
+            )
+            // 凡例。気圧の線が無いときは従来どおり出さない
+            if (hasBaro) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    LegendSwatch(lineColor)
+                    Text("GPS", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                    LegendSwatch(baroColor, Modifier.padding(start = 6.dp))
+                    Text("気圧", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
 
         // ズームボタン
         Row(
@@ -241,6 +295,17 @@ fun AltitudePage(
             ) { Text("1x", fontSize = 11.sp) }
         }
     }
+}
+
+/** 凡例の色見本（線を模した短い横棒） */
+@Composable
+private fun LegendSwatch(color: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .width(12.dp)
+            .height(2.dp)
+            .background(color)
+    )
 }
 
 private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.US)

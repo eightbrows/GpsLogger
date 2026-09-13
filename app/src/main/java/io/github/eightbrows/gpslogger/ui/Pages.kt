@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.state.ViewSnapshot
+import io.github.eightbrows.gpslogger.state.BarometerReader
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import io.github.eightbrows.gpslogger.settings.CoordFormatter
@@ -120,6 +121,13 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
         NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
         NumRow("楕円体高", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
+        // 生値から都度計算する（基準気圧は当面 標準大気で固定）。ライブ・再生共通
+        NumRow(
+            "気圧高度",
+            snapshot.pressureHpa?.let {
+                formatAltitude(BarometerReader.altitudeM(it).toDouble())
+            } ?: DASH
+        )
         NumRow(
             "精度",
             if (hasPos) "H%.1f m / V%.1f m".format(snapshot.accuracy, snapshot.verticalAccuracy) else DASH

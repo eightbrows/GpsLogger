@@ -129,13 +129,15 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     bearingAccuracy = record.bearingAccuracy,
                     satellites = satEpoch?.satellites ?: emptyList(),
                     dop = record.dop,
+                    pressureHpa = record.pressureHpa,
                     trackPoints = track.map {
                         io.github.eightbrows.gpslogger.state.TrackPoint(
                             latitude = it.latitude,
                             longitude = it.longitude,
                             altitude = it.altitude,
                             timeMs = it.epochMs,
-                            gapBefore = it.gapBefore
+                            gapBefore = it.gapBefore,
+                            pressureHpa = it.pressureHpa
                         )
                     },
                     timeMs = record.epochMs,

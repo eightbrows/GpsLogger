@@ -24,9 +24,7 @@ data class TrackRecord(
     /** 記録時の設定間隔（秒）。読めなければ0 */
     val intervalSec: Int,
     /** 気圧センサーの生値（hPa）。空欄なら null */
-    val pressureHpa: Float?,
-    /** 気圧から算出した高度（m）。空欄なら null */
-    val baroAltitudeM: Double?
+    val pressureHpa: Float?
 )
 
 /** sats.csv の1エポック分 */
@@ -123,8 +121,7 @@ object SessionReader {
                             dop = parseDop(c),
                             gapBefore = c[19].trim().toBoolean(),
                             intervalSec = c[20].trim().toIntOrNull() ?: 0,
-                            pressureHpa = c[21].trim().toFloatOrNull(),
-                            baroAltitudeM = c[22].trim().toDoubleOrNull()
+                            pressureHpa = c[21].trim().toFloatOrNull()
                         )
                     )
                 }.onFailure { skipped++ }
@@ -206,7 +203,7 @@ object SessionReader {
     }
 
     /** track.csv v2 の列数。これ未満の行は読み飛ばす（v1データは読めない） */
-    private const val TRACK_COLUMNS = 23
+    private const val TRACK_COLUMNS = 22
 
     private const val TAG = "SessionReader"
 }
