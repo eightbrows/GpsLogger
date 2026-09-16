@@ -56,6 +56,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +70,38 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showConfirm by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableStateOf(0) }
+    // 初回の一覧取得が終わるまで「記録がありません」を出さない
+    var listLoaded by remember { mutableStateOf(false) }
+
+    // セッション名 → タグ。読み込み済みの分で先に表示し、最新の読み込み結果で差し替える
+    var tagsByName by remember { mutableStateOf(SessionTagCache.cached()) }
+    // 絞り込みに使うタグ（AND 条件）。再生画面から戻っても残す
+    var selectedTags by remember { mutableStateOf(TagFilterMemory.selected) }
+
+    // 絞り込み後に表示するセッション。選択・全選択・削除・エクスポートはすべてこちらが対象
+    val visibleSessions = remember(sessions, tagsByName, selectedTags) {
+        if (selectedTags.isEmpty()) sessions
+        else sessions.filter { TagFilter.matches(tagsByName[it.name].orEmpty(), selectedTags) }
+    }
+    // 絞り込みの候補は、絞り込み前の全セッションから集める（チップの並びが選択で変わらないように）
+    val tagCounts = remember(sessions, tagsByName) {
+        TagFilter.collect(tagsByName, sessions.map { it.name })
+    }
+
+    /** 見えなくなったセッションを選択から外す（見えない記録を削除・エクスポートしないため） */
+    fun keepSelectionWithin(visibleNames: Set<String>) {
+        if (selected.any { it !in visibleNames }) {
+            selected = selected.filterTo(HashSet()) { it in visibleNames }
+            if (selected.isEmpty()) selectMode = false
+        }
+    }
+
+    fun applyTagFilter(tags: Set<String>) {
+        selectedTags = tags
+        TagFilterMemory.selected = tags
+        val names = TagFilter.filter(sessions.map { it.name }, tagsByName, tags)
+        keepSelectionWithin(names.toSet())
+    }
 
     var importing by remember { mutableStateOf(false) }
     var importResult by remember { mutableStateOf<ImportResult?>(null) }
@@ -99,7 +135,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         if (uri != null) {
-            val targets = sessions.filter { it.name in selected && it.name != currentSession?.name }
+            val targets = visibleSessions.filter { it.name in selected && it.name != currentSession?.name }
             exporting = true
             scope.launch {
                 val ok = withContext(Dispatchers.IO) {
@@ -127,9 +163,28 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         }
     }
 
+    // 一覧とタグの読み込みはIOスレッドで。タグは変わったセッションの分だけ読み直す
     LaunchedEffect(reloadKey) {
         val base = context.getExternalFilesDir(null)
-        sessions = if (base != null) SessionReader.listSessions(base) else emptyList()
+        val list = withContext(Dispatchers.IO) {
+            if (base != null) SessionReader.listSessions(base) else emptyList()
+        }
+        sessions = list
+        listLoaded = true
+
+        val tags = withContext(Dispatchers.IO) { SessionTagCache.load(list) }
+        tagsByName = tags
+
+        // どのセッションにも無くなったタグは選択から外す（削除・編集の後など）
+        val existing = tags.values.flatten().toSet()
+        if (!existing.containsAll(selectedTags)) {
+            applyTagFilter(selectedTags.intersect(existing))
+        }
+    }
+
+    // 一覧の再読み込みで見えなくなったセッションも選択から外す
+    LaunchedEffect(visibleSessions) {
+        keepSelectionWithin(visibleSessions.mapTo(HashSet()) { it.name })
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -152,7 +207,8 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 }
                 IconButton(
                     onClick = {
-                        val selectable = sessions
+                        // 絞り込み中は表示されているセッションだけを選ぶ
+                        val selectable = visibleSessions
                             .filter { it.name != currentSession?.name }
                             .map { it.name }
                             .toSet()
@@ -161,7 +217,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                             selected = selectable
                         }
                     },
-                    enabled = sessions.isNotEmpty()
+                    enabled = visibleSessions.isNotEmpty()
                 ) {
                     Icon(Icons.Filled.SelectAll, contentDescription = "全選択")
                 }
@@ -198,6 +254,27 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         }
         HorizontalDivider()
 
+        // タグによる絞り込み。タグを持つセッションが無ければ出さない
+        if (tagCounts.isNotEmpty()) {
+            TagFilterBar(
+                tags = tagCounts,
+                selected = selectedTags,
+                onToggle = { tag ->
+                    applyTagFilter(if (tag in selectedTags) selectedTags - tag else selectedTags + tag)
+                },
+                onClear = { applyTagFilter(emptySet()) }
+            )
+            if (selectedTags.isNotEmpty()) {
+                Text(
+                    "${visibleSessions.size} / ${sessions.size} 件を表示（選択したタグをすべて含む記録）",
+                    Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            HorizontalDivider()
+        }
+
         if (exporting) {
             Row(
                 Modifier.fillMaxWidth().padding(8.dp),
@@ -209,13 +286,22 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
             }
         }
 
-        if (sessions.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when {
+            !listLoaded -> Unit
+
+            sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("記録がありません", color = MaterialTheme.colorScheme.outline)
             }
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(sessions) { dir ->
+
+            visibleSessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "選択したタグをすべて含む記録はありません",
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                items(visibleSessions, key = { it.name }) { dir ->
                     val isRecording = currentSession?.name == dir.name
                     val isSelected = dir.name in selected
                     Row(
@@ -272,6 +358,16 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.outline
                             )
+                            val tags = tagsByName[dir.name].orEmpty()
+                            if (tags.isNotEmpty()) {
+                                Text(
+                                    tags.joinToString("  ") { "#$it" },
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                     HorizontalDivider()
@@ -282,7 +378,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
 
     // 削除確認ダイアログ
     if (showConfirm) {
-        val targets = sessions.filter { it.name in selected && it.name != currentSession?.name }
+        val targets = visibleSessions.filter { it.name in selected && it.name != currentSession?.name }
         AlertDialog(
             onDismissRequest = { showConfirm = false },
             title = { Text("記録を削除") },
@@ -358,6 +454,43 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     }
 }
 
+/** 絞り込みの選択状態。一覧画面は再生画面へ移ると破棄されるので、プロセスの間ここに残す */
+private object TagFilterMemory {
+    var selected: Set<String> = emptySet()
+}
+
+/** タグのチップを横に並べる。はみ出す分は横スクロール */
+@Composable
+private fun TagFilterBar(
+    tags: List<TagCount>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("タグ", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+            tags.forEach { t ->
+                FilterChip(
+                    selected = t.tag in selected,
+                    onClick = { onToggle(t.tag) },
+                    label = { Text("${t.tag}  ${t.count}", fontSize = 12.sp) }
+                )
+            }
+        }
+        if (selected.isNotEmpty()) {
+            TextButton(onClick = onClear) { Text("解除", fontSize = 12.sp) }
+        }
+    }
+}
+
 /** session_20260720_143000 → 2026-07-20 (月) 14:30:00 */
 private fun formatSessionName(name: String): String {
     val raw = name.removePrefix("session_")
@@ -394,7 +527,7 @@ private data class ImportResult(
 )
 
 /** エントリ名の許可パターン（これ以外は全て拒否） */
-private val ENTRY_PATTERN = Regex("^(session_\\d{8}_\\d{6})/(track|sats)\\.csv$")
+private val ENTRY_PATTERN = Regex("^(session_\\d{8}_\\d{6})/(track\\.csv|sats\\.csv|meta\\.json)$")
 
 private fun importZip(
     context: android.content.Context,

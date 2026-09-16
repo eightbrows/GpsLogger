@@ -34,6 +34,7 @@ import io.github.eightbrows.gpslogger.BuildConfig
 import io.github.eightbrows.gpslogger.session.Segment
 import io.github.eightbrows.gpslogger.session.SessionMeta
 import io.github.eightbrows.gpslogger.session.SessionReader
+import io.github.eightbrows.gpslogger.session.SessionTagCache
 import io.github.eightbrows.gpslogger.calc.resolveBasePressureHpa
 
 class LoggerService : Service() {
@@ -399,6 +400,7 @@ class LoggerService : Service() {
                     osVersion = Build.VERSION.RELEASE.orEmpty(),
                     appVersion = BuildConfig.VERSION_NAME
                 ).writeTo(dir)
+                SessionTagCache.invalidate(dir)
                 Log.d(TAG, "meta.json written: ${dir.name}")
             } catch (e: Exception) {
                 Log.e(TAG, "failed to write meta.json", e)

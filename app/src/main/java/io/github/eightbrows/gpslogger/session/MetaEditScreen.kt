@@ -137,7 +137,11 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
                 when (val result = MetaPaths.apply(base, path, input)) {
                     is MetaEditResult.Failure -> result.message
                     is MetaEditResult.Success -> try {
-                        withContext(Dispatchers.IO) { result.meta.writeTo(sessionDir) }
+                        withContext(Dispatchers.IO) {
+                            result.meta.writeTo(sessionDir)
+                            // 履歴一覧のタグ表示に反映させる
+                            SessionTagCache.invalidate(sessionDir)
+                        }
                         meta = result.meta
                         fileExists = true
                         editingPath = null
