@@ -52,9 +52,11 @@ fun AltitudePage(
     val markerColor = MaterialTheme.colorScheme.error
     val baroColor = MaterialTheme.colorScheme.tertiary
 
-    // 気圧高度（m）。生値から都度計算し、気圧が無い点は null。points と同じ並び
+    // 気圧高度（m）。生値と各点の基準気圧から計算し、気圧が無い点は null。points と同じ並び
     val baroAlts: List<Double?> = remember(points) {
-        points.map { p -> p.pressureHpa?.let { BarometerReader.altitudeM(it).toDouble() } }
+        points.map { p ->
+            p.pressureHpa?.let { BarometerReader.altitudeM(it, p.basePressureHpa).toDouble() }
+        }
     }
     val hasBaro = baroAlts.any { it != null }
 

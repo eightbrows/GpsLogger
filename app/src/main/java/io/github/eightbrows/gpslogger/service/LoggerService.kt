@@ -34,6 +34,7 @@ import io.github.eightbrows.gpslogger.BuildConfig
 import io.github.eightbrows.gpslogger.session.Segment
 import io.github.eightbrows.gpslogger.session.SessionMeta
 import io.github.eightbrows.gpslogger.session.SessionReader
+import io.github.eightbrows.gpslogger.calc.resolveBasePressureHpa
 
 class LoggerService : Service() {
 
@@ -198,6 +199,11 @@ class LoggerService : Service() {
             GnssStateHolder.reset()
             GnssStateHolder.setLogging(true)
             GnssStateHolder.setPaused(false)   // reset()では消えないので明示的に戻す
+            // 気圧高度の基準気圧。記録中は meta.json を編集できないため、開始時点の値を使い続ける。
+            // 新しいセッションには通常 meta.json が無いので標準大気になる
+            GnssStateHolder.setBasePressure(
+                resolveBasePressureHpa(SessionReader.readMeta(sessionDir), startTimeMs)
+            )
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
             stopSelf()
@@ -464,6 +470,8 @@ class LoggerService : Service() {
             // reset() は呼ばない（軌跡を消さずに残す）
             Log.w(TAG, "destroyed without stop request; clearing logging state")
             GnssStateHolder.setLogging(false)
+            // 軌跡は残すので reset() は呼ばないが、以降のプレビューの点は標準大気に戻す
+            GnssStateHolder.setBasePressure(BarometerReader.STANDARD_PRESSURE_HPA)
             GnssStateHolder.setPaused(false)
             GnssStateHolder.setCurrentSession(null)
             GnssStateHolder.setRecordingStart(0L)

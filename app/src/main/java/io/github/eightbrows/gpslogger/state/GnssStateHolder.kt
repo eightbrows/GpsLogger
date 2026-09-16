@@ -16,7 +16,9 @@ data class TrackPoint(
     /** 一時停止からの再開直後の点か（暗色描画に使う） */
     val gapBefore: Boolean = false,
     /** 測位時点の気圧の生値（hPa）。高度は表示時に基準気圧から計算する */
-    val pressureHpa: Float? = null
+    val pressureHpa: Float? = null,
+    /** この点の気圧高度に使う基準気圧（hPa）。meta.json の区間・セッション設定から解決済み */
+    val basePressureHpa: Float = BarometerReader.STANDARD_PRESSURE_HPA
 )
 
 /** 時刻Tにおける位置＋その瞬間の衛星セット。UIはこれ1つで駆動される。 */
@@ -71,7 +73,8 @@ object GnssStateHolder {
                 altitude = location.altitude,
                 timeMs = location.time,
                 gapBefore = gapBefore,
-                pressureHpa = pressureHpa
+                pressureHpa = pressureHpa,
+                basePressureHpa = _basePressureHpa.value
             )
         }
     }
@@ -89,9 +92,21 @@ object GnssStateHolder {
         _isPaused.value = paused
     }
 
+    /**
+     * 新しく積む測位点の基準気圧（hPa）。記録中はサービスが開始時に解決した値、
+     * それ以外は標準大気。
+     */
+    private val _basePressureHpa = MutableStateFlow(BarometerReader.STANDARD_PRESSURE_HPA)
+    val basePressureHpa: StateFlow<Float> = _basePressureHpa.asStateFlow()
+
+    fun setBasePressure(hpa: Float) {
+        _basePressureHpa.value = hpa
+    }
+
     /** 記録開始時にリセット */
     fun reset() {
         _snapshot.value = GnssSnapshot()
+        _basePressureHpa.value = BarometerReader.STANDARD_PRESSURE_HPA
         _trackPoints.value = emptyList()
         _loggingError.value = null
     }
@@ -141,6 +156,8 @@ data class ViewSnapshot(
     val dop: Dop? = null,
     /** 気圧の生値（hPa）。高度は表示時に基準気圧から計算する */
     val pressureHpa: Float? = null,
+    /** pressureHpa から高度を計算するときの基準気圧（hPa） */
+    val basePressureHpa: Float = BarometerReader.STANDARD_PRESSURE_HPA,
     val trackPoints: List<TrackPoint> = emptyList(),
     val timeMs: Long = 0L,
     val markerIndex: Int? = null,  // 再生時の選択位置。nullなら末尾＝現在地

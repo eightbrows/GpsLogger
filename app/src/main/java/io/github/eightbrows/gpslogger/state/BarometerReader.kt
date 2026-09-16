@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object BarometerReader {
 
-    /** 標準大気の海面気圧（hPa）。基準気圧は meta.json 対応までこの固定値 */
+    /** 標準大気の海面気圧（hPa）。meta.json が無いときの基準気圧 */
     const val STANDARD_PRESSURE_HPA = 1013.25f
 
     private val owners = mutableSetOf<Any>()

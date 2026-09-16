@@ -19,6 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import io.github.eightbrows.gpslogger.calc.BasePressureResolver
+import io.github.eightbrows.gpslogger.state.BarometerReader
+import io.github.eightbrows.gpslogger.state.TrackPoint
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,20 +66,40 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
     var position by remember { mutableFloatStateOf(0f) }  // 0.0〜1.0
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showMetaEditor by remember { mutableStateOf(false) }
+    // 表示用の測位点（基準気圧を解決済み）。data.track と同じ並び・同じ件数
+    var trackPoints by remember { mutableStateOf<List<TrackPoint>>(emptyList()) }
+    // 編集画面から戻るたびに増やし、基準気圧を解決し直す
+    var metaRevision by remember { mutableIntStateOf(0) }
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
     val isRecordingThis = currentSession?.name == sessionDir.name
 
     // 読み込みはIOスレッドで
     LaunchedEffect(sessionDir) {
         loading = true
-        data = withContext(Dispatchers.IO) { SessionReader.read(sessionDir) }
+        val loaded = withContext(Dispatchers.IO) { SessionReader.read(sessionDir) }
+        // 表示用の点も読み込み時にまとめて作る（再生位置を動かすたびに区間を探さない）
+        trackPoints = loaded?.let { buildTrackPoints(sessionDir, it.track) } ?: emptyList()
+        data = loaded
         position = 0f
         loading = false
     }
 
+    // meta.json を編集したら基準気圧だけ解決し直す（記録本体は読み直さない・再生位置も保つ）
+    LaunchedEffect(metaRevision) {
+        if (metaRevision == 0) return@LaunchedEffect
+        val track = data?.track ?: return@LaunchedEffect
+        trackPoints = buildTrackPoints(sessionDir, track)
+    }
+
     // 記録情報（meta.json）の編集画面。戻ると再生画面へ（読み込み済みの記録と再生位置は保持）
     if (showMetaEditor) {
-        MetaEditScreen(sessionDir = sessionDir, onBack = { showMetaEditor = false })
+        MetaEditScreen(
+            sessionDir = sessionDir,
+            onBack = {
+                showMetaEditor = false
+                metaRevision++
+            }
+        )
         return
     }
 
@@ -150,16 +174,9 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     satellites = satEpoch?.satellites ?: emptyList(),
                     dop = record.dop,
                     pressureHpa = record.pressureHpa,
-                    trackPoints = track.map {
-                        io.github.eightbrows.gpslogger.state.TrackPoint(
-                            latitude = it.latitude,
-                            longitude = it.longitude,
-                            altitude = it.altitude,
-                            timeMs = it.epochMs,
-                            gapBefore = it.gapBefore,
-                            pressureHpa = it.pressureHpa
-                        )
-                    },
+                    basePressureHpa = trackPoints.getOrNull(index)?.basePressureHpa
+                        ?: BarometerReader.STANDARD_PRESSURE_HPA,
+                    trackPoints = trackPoints,
                     timeMs = record.epochMs,
                     markerIndex = index,
                     sessionStartMs = track.firstOrNull()?.epochMs ?: 0L,
@@ -322,6 +339,26 @@ private fun StepButton(
         Icon(icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
     }
 }
+
+/**
+ * CSV の記録を表示用の測位点に変換し、各点の基準気圧を meta.json から解決する。
+ * meta.json の読み込みと全点の解決は IO スレッドでまとめて行う。
+ */
+private suspend fun buildTrackPoints(sessionDir: File, track: List<TrackRecord>): List<TrackPoint> =
+    withContext(Dispatchers.IO) {
+        val resolver = BasePressureResolver(SessionReader.readMeta(sessionDir))
+        track.map {
+            TrackPoint(
+                latitude = it.latitude,
+                longitude = it.longitude,
+                altitude = it.altitude,
+                timeMs = it.epochMs,
+                gapBefore = it.gapBefore,
+                pressureHpa = it.pressureHpa,
+                basePressureHpa = resolver.at(it.epochMs)
+            )
+        }
+    }
 
 /** session_20260720_143000 → 2026-07-20 14:30:00 */
 private fun formatSessionLabel(name: String): String {

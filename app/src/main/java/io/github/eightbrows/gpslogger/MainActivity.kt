@@ -98,6 +98,7 @@ fun RecordControlScreen() {
     val isLogging by GnssStateHolder.isLogging.collectAsState()
     val isPaused by GnssStateHolder.isPaused.collectAsState()
     val pressureHpa by BarometerReader.pressureHpa.collectAsState()
+    val basePressureHpa by GnssStateHolder.basePressureHpa.collectAsState()
     val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
     val trackPoints by GnssStateHolder.trackPoints.collectAsState()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
@@ -124,6 +125,7 @@ fun RecordControlScreen() {
         satellites = holderSnapshot.satellites,
         dop = holderSnapshot.dop,
         pressureHpa = pressureHpa,
+        basePressureHpa = basePressureHpa,
         trackPoints = trackPoints,
         timeMs = holderSnapshot.location?.time ?: 0L,
         markerIndex = null,

@@ -121,11 +121,11 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
         NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
         NumRow("楕円体高", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
-        // 生値から都度計算する（基準気圧は当面 標準大気で固定）。ライブ・再生共通
+        // 生値と基準気圧（meta.json から解決済み）から都度計算する。ライブ・再生共通
         NumRow(
             "気圧高度",
             snapshot.pressureHpa?.let {
-                formatAltitude(BarometerReader.altitudeM(it).toDouble())
+                formatAltitude(BarometerReader.altitudeM(it, snapshot.basePressureHpa).toDouble())
             } ?: DASH
         )
         NumRow(
