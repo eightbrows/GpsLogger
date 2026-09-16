@@ -48,6 +48,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
@@ -60,6 +61,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var position by remember { mutableFloatStateOf(0f) }  // 0.0〜1.0
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showMetaEditor by remember { mutableStateOf(false) }
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
     val isRecordingThis = currentSession?.name == sessionDir.name
 
@@ -69,6 +71,12 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
         data = withContext(Dispatchers.IO) { SessionReader.read(sessionDir) }
         position = 0f
         loading = false
+    }
+
+    // 記録情報（meta.json）の編集画面。戻ると再生画面へ（読み込み済みの記録と再生位置は保持）
+    if (showMetaEditor) {
+        MetaEditScreen(sessionDir = sessionDir, onBack = { showMetaEditor = false })
+        return
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -83,6 +91,18 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
             }
             Text(sessionDir.name, Modifier.weight(1f), fontSize = 12.sp)
+            // 記録中のセッションは停止時に meta.json が書き出され、編集が上書きされるので開かせない
+            IconButton(
+                onClick = { showMetaEditor = true },
+                enabled = !isRecordingThis,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = "記録情報を編集",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             IconButton(
                 onClick = { showDeleteConfirm = true },
                 enabled = !isRecordingThis,
