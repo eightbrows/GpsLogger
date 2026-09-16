@@ -10,7 +10,7 @@ fun versionCodeFrom(name: String): Int {
     return date * 100 + seq
 }
 
-val appVersionName = "20260912-R05"
+val appVersionName = "20260916-D01"
 android {
     namespace = "io.github.eightbrows.gpslogger"
     compileSdk {
@@ -74,6 +74,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
+    // Android の org.json は単体テストではスタブなので、JVM 上で動く実装を使う（アプリ本体には入らない）
+    testImplementation(libs.json)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

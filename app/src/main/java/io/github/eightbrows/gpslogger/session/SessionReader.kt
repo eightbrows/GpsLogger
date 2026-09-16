@@ -5,6 +5,7 @@ import io.github.eightbrows.gpslogger.calc.Dop
 import io.github.eightbrows.gpslogger.log.LogEvent
 import java.io.File
 import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
+import io.github.eightbrows.gpslogger.calc.Geo
 
 /** track.csv の1行（再生用に必要な項目のみ） */
 data class TrackRecord(
@@ -93,6 +94,35 @@ object SessionReader {
         Log.d(TAG, "read ${sessionDir.name}: track=${track.size} (skipped=$trackSkipped) satEpochs=${satEpochs.size}")
 
         return SessionData(track, satEpochs, trackSkipped)
+    }
+
+    /**
+     * meta.json を読む。ファイルが無い（既存セッション）・読めない・JSONとして不正なら null。
+     * 例外は投げない。
+     */
+    fun readMeta(sessionDir: File): SessionMeta? {
+        val file = File(sessionDir, SessionMeta.FILE_NAME)
+        if (!file.exists()) return null
+        val text = try {
+            file.readText()
+        } catch (e: Exception) {
+            Log.w(TAG, "cannot read ${file.path}", e)
+            return null
+        }
+        return SessionMeta.parse(text).also {
+            if (it == null) Log.w(TAG, "invalid meta.json: ${sessionDir.name}")
+        }
+    }
+
+    /**
+     * track.csv の移動距離（m）。区間ごとに積算して合計する。
+     * gap_before の点の手前（一時停止をまたぐ部分）は含めない。ファイルが無ければ 0
+     */
+    fun trackDistanceM(sessionDir: File): Double {
+        val file = File(sessionDir, "track.csv")
+        if (!file.exists()) return 0.0
+        val (track, _) = readTrack(file)
+        return Geo.pathLengthM(track.map { it.latitude to it.longitude }) { track[it].gapBefore }
     }
 
     private fun readTrack(file: File): Pair<List<TrackRecord>, Int> {

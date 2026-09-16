@@ -30,6 +30,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import io.github.eightbrows.gpslogger.R
+import io.github.eightbrows.gpslogger.BuildConfig
+import io.github.eightbrows.gpslogger.session.Segment
+import io.github.eightbrows.gpslogger.session.SessionMeta
+import io.github.eightbrows.gpslogger.session.SessionReader
 
 class LoggerService : Service() {
 
@@ -55,6 +59,15 @@ class LoggerService : Service() {
     /** 記録開始時の設定間隔（秒）。記録中に設定が変わってもセッション内で固定する */
     private var sessionIntervalSec = 0
     private var fixCount = 0
+
+    /** 記録中セッションのフォルダ（meta.json の書き出し先） */
+    private var sessionDir: File? = null
+
+    /** 確定済みの記録区間。一時停止で閉じ、再開で次の区間を開く */
+    private val segments = mutableListOf<Segment>()
+    private var segmentStartMs = 0L
+    private var segmentPoints = 0
+    private var segmentOpen = false
     private var notificationHandler: Handler? = null
     private val notificationUpdater = object : Runnable {
         override fun run() {
@@ -85,6 +98,7 @@ class LoggerService : Service() {
         GnssStateHolder.updateLocation(location, gapBefore, pressureHpa)
         GnssStateHolder.updateDop(dop)
         fixCount++
+        segmentPoints++
     }
 
     // 衛星状態を受け取る
@@ -153,6 +167,8 @@ class LoggerService : Service() {
         try {
             startTimeMs = System.currentTimeMillis()
             fixCount = 0
+            segments.clear()
+            openSegment(startTimeMs)
             sessionIntervalSec = Settings.intervalSec.value
             GnssStateHolder.setRecordingStart(startTimeMs)
 
@@ -173,6 +189,7 @@ class LoggerService : Service() {
                 .format(Date())
             val sessionDir = File(baseDir, sessionName)
             GnssStateHolder.setCurrentSession(sessionDir)
+            this.sessionDir = sessionDir
             logWriter = LogWriter(sessionDir) { message ->
                 GnssStateHolder.setLoggingError(message)
             }.also { it.start() }
@@ -214,6 +231,7 @@ class LoggerService : Service() {
         logWriter?.flushNow()         // しばらく放置されるのでバッファを確定させる
         releaseWakeLock()
         latestSats = emptyList()      // 通知に古い衛星数を残さない
+        closeSegment(System.currentTimeMillis())
         GnssStateHolder.setPaused(true)
         updateNotification()
         Log.d(TAG, "logging paused")
@@ -237,6 +255,7 @@ class LoggerService : Service() {
             return
         }
         pendingGapBefore = true      // 再開後の最初の1点に gap_before を立てる
+        openSegment(System.currentTimeMillis())
         acquireWakeLockIfEnabled()
         GnssStateHolder.setPaused(false)
         updateNotification()
@@ -316,8 +335,12 @@ class LoggerService : Service() {
     private fun stopLogging() {
         stopRequested = true
         val wasActive = sessionActive || logWriter != null
-        releaseResources()
+        val stopMs = System.currentTimeMillis()
+        closeSegment(stopMs)   // 一時停止中なら閉じ済みなので何もしない
+        releaseResources()     // ここでライターが閉じ、track.csv が確定する
         if (wasActive) {
+            sessionDir?.let { writeMetaInBackground(it, stopMs) }
+            sessionDir = null
             Log.d(TAG, "logging stopped")
             GnssStateHolder.setLogging(false)
             GnssStateHolder.setPaused(false)
@@ -327,6 +350,55 @@ class LoggerService : Service() {
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun openSegment(startMs: Long) {
+        segmentStartMs = startMs
+        segmentPoints = 0
+        segmentOpen = true
+    }
+
+    private fun closeSegment(endMs: Long) {
+        if (!segmentOpen) return
+        segments += Segment(
+            start = SessionMeta.timeOf(segmentStartMs),
+            end = SessionMeta.timeOf(endMs),
+            points = segmentPoints,
+            basePressureHpa = null
+        )
+        segmentOpen = false
+    }
+
+    /**
+     * meta.json を書き出す。距離の計算で track.csv を全行読むため、メインスレッドでは行わない。
+     * 値はスレッドへ渡す前に確定させる（直後に次の記録が始まっても混ざらない）。
+     */
+    private fun writeMetaInBackground(dir: File, endMs: Long) {
+        val start = SessionMeta.timeOf(startTimeMs)
+        val end = SessionMeta.timeOf(endMs)
+        val points = fixCount
+        val segs = segments.toList()
+        val useWakeLock = Settings.useWakeLock.value
+
+        Thread({
+            try {
+                SessionMeta(
+                    start = start,
+                    end = end,
+                    pointCount = points,
+                    distanceM = SessionReader.trackDistanceM(dir),
+                    segments = segs,
+                    useWakeLock = useWakeLock,
+                    deviceModel = Build.MODEL.orEmpty(),
+                    osVersion = Build.VERSION.RELEASE.orEmpty(),
+                    appVersion = BuildConfig.VERSION_NAME
+                ).writeTo(dir)
+                Log.d(TAG, "meta.json written: ${dir.name}")
+            } catch (e: Exception) {
+                Log.e(TAG, "failed to write meta.json", e)
+                GnssStateHolder.setLoggingError("記録情報（meta.json）の保存に失敗しました")
+            }
+        }, "MetaWriter").start()
     }
 
     private fun buildNotification(): Notification {
