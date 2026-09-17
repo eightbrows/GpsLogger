@@ -107,20 +107,24 @@ object Settings {
         prefs.edit { putInt(KEY_PREVIEW_COLOR, color) }
     }
 
-    /** 軌跡色の選択肢 */
+    /** 軌跡色の選択肢（通話料金確認アプリの WIDGET_COLOR_PALETTE に準拠） */
     val trackColorOptions = listOf(
-        0xFFE91E63.toInt(),  // ピンク
-        0xFF00BCD4.toInt(),  // 水色
-        0xFF4CAF50.toInt(),  // 緑
-        0xFFFF9800.toInt(),  // 橙
-        0xFF9C27B0.toInt(),  // 紫
-        0xFF2196F3.toInt(),  // 青
-        0xFFF44336.toInt(),  // 赤
-        0xFF9E9E9E.toInt()   // グレー
+        TrackColorOption("白", 0xFFFFFFFF.toInt()),
+        TrackColorOption("ティール", 0xFF26C6DA.toInt()),
+        TrackColorOption("青", 0xFF0000FF.toInt()),
+        TrackColorOption("藍", 0xFF3F51B5.toInt()),
+        TrackColorOption("紫", 0xFF7B1FA2.toInt()),
+        TrackColorOption("ピンク", 0xFFE91E63.toInt()),
+        TrackColorOption("赤", 0xFFFF0000.toInt()),
+        TrackColorOption("橙", 0xFFFF5722.toInt()),
+        TrackColorOption("黄", 0xFFFBC02D.toInt()),
+        TrackColorOption("オリーブ", 0xFF6B6E1E.toInt()),
+        TrackColorOption("緑", 0xFF388E3C.toInt()),
+        TrackColorOption("黒", 0xFF000000.toInt())
     )
 
     private const val DEFAULT_RECORDING_COLOR = 0xFFE91E63.toInt()  // ピンク
-    private const val DEFAULT_PREVIEW_COLOR = 0xFF00BCD4.toInt()    // 水色
+    private const val DEFAULT_PREVIEW_COLOR = 0xFF0000FF.toInt()    // 青
     private const val KEY_RECORDING_COLOR = "recording_color"
     private const val KEY_PREVIEW_COLOR = "preview_color"
 
@@ -142,3 +146,6 @@ object Settings {
         prefs.edit { putBoolean(KEY_PERMISSION_NOTICE, shown) }
     }
 }
+
+/** 軌跡色の1色分（パレット表示用に色名を持つ） */
+data class TrackColorOption(val name: String, val color: Int)

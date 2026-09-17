@@ -34,7 +34,7 @@ enum class AppPermission(
     ),
     NOTIFICATIONS(
         "通知",
-        "記録中であることを通知に表示します",
+        "記録中であることを通知領域に表示します",
         "android.permission.POST_NOTIFICATIONS",
         Build.VERSION_CODES.TIRAMISU,
         true
