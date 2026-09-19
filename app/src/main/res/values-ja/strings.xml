@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    既定（英語）。日本語は values-ja/strings.xml。
+    DOP・RINEX 記号・WN/TOW・UTC・Z-count・系統名・単位・FIX/NO FIX・meta.json のキー名は
+    日英共通の専門用語としてコードにそのまま残している。
+-->
+<resources>
+    <string name="app_name">現在位置記録アプリ</string>
+
+    <!-- 共通 -->
+    <string name="action_close">閉じる</string>
+    <string name="action_cancel">キャンセル</string>
+    <string name="action_delete">削除</string>
+    <string name="action_back">戻る</string>
+    <string name="action_open_settings">設定へ</string>
+    <string name="action_later">後で</string>
+    <string name="undo_warning">この操作は取り消せません。</string>
+
+    <!-- 下部タブ -->
+    <string name="tab_record">記録</string>
+    <string name="tab_history">履歴</string>
+    <string name="tab_settings">設定</string>
+
+    <!-- 記録画面 -->
+    <string name="status_paused">⏸ 一時停止中</string>
+    <string name="status_recording">● 記録中</string>
+    <string name="status_stopped">○ 停止中</string>
+    <string name="record_start">開始</string>
+    <string name="record_pause">一時停止</string>
+    <string name="record_resume">再開</string>
+    <string name="record_stop">停止</string>
+    <string name="permission_required_title">権限が必要です</string>
+    <string name="permission_required_message">記録を開始するには位置情報の権限が必要です。設定タブから許可してください。</string>
+    <string name="permission_notice_title">権限の許可について</string>
+    <string name="permission_notice_message">位置情報の記録には権限の許可が必要です。設定タブから許可してください。</string>
+
+    <!-- 通知 -->
+    <string name="notification_channel_name">現在位置記録</string>
+    <string name="notification_title_recording">位置記録中  %1$s</string>
+    <string name="notification_title_paused">一時停止中  %1$s</string>
+    <string name="notification_text_recording">%1$s ・ %2$d点 ・ 衛星 %3$d</string>
+    <string name="notification_text_paused">%1$d点 ・ 測位停止中</string>
+
+    <!-- 記録中のエラー -->
+    <string name="error_storage_unavailable">保存先が利用できません</string>
+    <string name="error_location_permission">位置情報の権限がありません</string>
+    <string name="error_meta_save">記録情報（meta.json）の保存に失敗しました</string>
+    <string name="error_create_session_dir">保存先フォルダを作成できませんでした</string>
+    <string name="error_write_failed">記録の書き込みに失敗しました: %1$s</string>
+    <string name="error_save_failed">記録の保存に失敗しました</string>
+
+    <!-- 軌跡 -->
+    <string name="traj_positioning_no_record">測位中（記録なし）</string>
+    <string name="traj_waiting_fix">測位待ち…</string>
+    <string name="traj_points_zoom">点数 %1$d  ×%2$.1f</string>
+    <string name="traj_clear">軌跡をクリア</string>
+    <string name="traj_following">追従中</string>
+    <string name="traj_recenter">現在地へ戻る</string>
+
+    <!-- 高度プロファイル -->
+    <string name="alt_no_data">データがありません</string>
+    <string name="alt_range_zoom">%1$.1f 〜 %2$.1f m  ×%3$.1f</string>
+    <string name="alt_legend_baro">気圧</string>
+
+    <!-- 数値ページ -->
+    <string name="num_session">記録</string>
+    <string name="num_duration">記録時間</string>
+    <string name="num_duration_value">%1$s (%2$d点)</string>
+    <string name="num_latitude">緯度</string>
+    <string name="num_longitude">経度</string>
+    <string name="num_alt_gps">高度 GPS</string>
+    <string name="num_alt_baro">高度 気圧</string>
+    <string name="num_accuracy">精度（1σ）</string>
+    <string name="num_speed">速度</string>
+    <string name="num_bearing">方位</string>
+    <string name="num_bearing_value">%1$.1f deg (精度+/- %2$.1f)</string>
+    <string name="num_satellites">衛星数</string>
+    <string name="num_group1">種別1</string>
+    <string name="num_group2">種別2</string>
+
+    <!-- 衛星（数値ページ・衛星リスト・上空図） -->
+    <string name="sat_used_visible">使用 %1$d / 可視 %2$d</string>
+    <string name="sat_used">使用</string>
+    <string name="sat_visible">可視</string>
+    <string name="satlist_system">系統</string>
+    <string name="satlist_azimuth">方位</string>
+    <string name="satlist_elevation">仰角</string>
+    <string name="sky_no_satellites">衛星なし</string>
+
+    <!-- 履歴一覧 -->
+    <string name="history_export_failed">エクスポートに失敗しました</string>
+    <string name="history_clear_selection">選択解除</string>
+    <string name="history_select_all">全選択</string>
+    <string name="history_selected_count">%1$d 件</string>
+    <string name="history_import">インポート</string>
+    <string name="history_export">エクスポート</string>
+    <string name="history_filter_count">%1$d / %2$d 件を表示（選択したタグをすべて含む記録）</string>
+    <string name="history_exporting">"  エクスポート中…"</string>
+    <string name="history_empty">記録がありません</string>
+    <string name="history_filter_empty">選択したタグをすべて含む記録はありません</string>
+    <string name="history_recording_badge">"  ● 記録中"</string>
+    <string name="history_delete_title">記録を削除</string>
+    <string name="history_delete_message">以下の %1$d 件を削除します。</string>
+    <string name="history_delete_item">・%1$s</string>
+    <string name="history_delete_more">ほか %1$d 件</string>
+    <string name="history_import_result">インポート結果</string>
+    <string name="history_import_done">%1$d 件のセッションをインポートしました</string>
+    <string name="history_import_skipped">%1$d 件のファイルは形式が不正のためスキップしました</string>
+    <string name="history_import_error_open">ファイルを開けません</string>
+    <string name="history_import_error_read">読み込みに失敗しました</string>
+    <string name="history_tags">タグ</string>
+    <string name="history_clear_filter">解除</string>
+    <string name="history_summary">約 %1$d 点 ・ %2$d KB</string>
+
+    <!-- 再生画面 -->
+    <string name="replay_edit_meta">記録情報を編集</string>
+    <string name="replay_load_failed">記録を読み込めませんでした</string>
+    <string name="replay_previous">前へ</string>
+    <string name="replay_next">次へ</string>
+    <string name="replay_sats_none">衛星: 該当なし</string>
+    <string name="replay_sats">衛星: %1$d</string>
+    <string name="replay_delete_title">記録を削除</string>
+
+    <!-- 記録情報（meta.json）の編集 -->
+    <string name="meta_title">記録情報</string>
+    <string name="meta_missing">meta.json がありません。項目を保存すると新しく作成されます。</string>
+    <string name="meta_hint_tap">鉛筆の付いた項目をタップすると編集できます</string>
+    <string name="meta_save_failed">保存に失敗しました: %1$s</string>
+    <string name="meta_hint_comment">自由に入力できます</string>
+    <string name="meta_hint_tags">カンマ区切りで入力（例: 旅行, お気に入り）</string>
+    <string name="meta_hint_base_pressure">単位 hPa。空欄にはできません</string>
+    <string name="meta_hint_segment_pressure">単位 hPa。空欄にすると未設定（記録全体の値を使用）</string>
+    <string name="meta_empty">（空）</string>
+    <string name="meta_unset">未設定</string>
+    <string name="meta_edit">編集</string>
+    <string name="meta_saving">保存中…</string>
+    <string name="meta_save">保存</string>
+    <string name="meta_error_not_editable">この項目は編集できません</string>
+    <string name="meta_error_pressure_required">基準気圧は空欄にできません</string>
+    <string name="meta_error_invalid_pressure">気圧は正の数値で入力してください（例: 1013.25）</string>
+    <string name="meta_error_segment_not_found">区間 %1$d が見つかりません</string>
+
+    <!-- 設定 -->
+    <string name="settings_interval">記録間隔（秒）</string>
+    <string name="settings_interval_locked">記録中は変更できません</string>
+    <string name="settings_interval_sparse">長い間隔では衛星情報の記録が疎になる場合あり</string>
+    <string name="settings_note_separator">／</string>
+    <string name="settings_coord_format">座標表示形式</string>
+    <string name="settings_coord_format_note">数値ページと軌跡のグリッドに反映されます</string>
+    <string name="settings_coord_decimal">度</string>
+    <string name="settings_coord_dms">度分秒</string>
+    <string name="settings_track_color">軌跡の色</string>
+    <string name="settings_track_color_note">記録中とプレビュー中で色を分けられます</string>
+    <string name="settings_wakelock">WakeLockを使用</string>
+    <string name="settings_wakelock_note">画面OFF時の取りこぼしを防止（電池消費が増加、端末の節電機能により効果が制限される場合あり）</string>
+    <string name="settings_leap_seconds">うるう秒（GPS − UTC）</string>
+    <string name="settings_leap_seconds_note">Z-countの算出に使用（初期値 18）</string>
+    <string name="settings_theme">テーマ</string>
+    <string name="settings_theme_note">アプリ全体の配色を切り替えます</string>
+    <string name="settings_follow_system">システムに従う</string>
+    <string name="settings_theme_light">ライト</string>
+    <string name="settings_theme_dark">ダーク</string>
+    <string name="settings_language">言語</string>
+    <string name="settings_language_note">アプリの表示言語を切り替えます</string>
+
+    <string name="settings_permissions">権限</string>
+    <string name="settings_about">情報</string>
+    <string name="settings_storage">保存先</string>
+    <string name="settings_storage_value">アプリ専用ディレクトリ</string>
+    <string name="settings_version">バージョン</string>
+    <string name="settings_license">ライセンス</string>
+    <string name="settings_website">公式サイト</string>
+    <string name="settings_color_preview">プレビュー</string>
+    <string name="settings_color_recording">記録中</string>
+    <string name="settings_color_dialog_title">%1$sの色を選択</string>
+    <string name="permission_granted">許可済み</string>
+    <string name="permission_denied">未許可</string>
+
+    <!-- 権限 -->
+    <string name="perm_fine_location">位置情報（正確）</string>
+    <string name="perm_fine_location_desc">GNSSによる測位に必要です</string>
+    <string name="perm_background_location">位置情報（常に許可）</string>
+    <string name="perm_background_location_desc">画面を閉じても記録を続けるために必要です</string>
+    <string name="perm_notifications">通知</string>
+    <string name="perm_notifications_desc">記録中であることを通知領域に表示します</string>
+
+    <!-- 軌跡色の名前 -->
+    <string name="color_white">白</string>
+    <string name="color_teal">ティール</string>
+    <string name="color_blue">青</string>
+    <string name="color_indigo">藍</string>
+    <string name="color_purple">紫</string>
+    <string name="color_pink">ピンク</string>
+    <string name="color_red">赤</string>
+    <string name="color_orange">橙</string>
+    <string name="color_yellow">黄</string>
+    <string name="color_olive">オリーブ</string>
+    <string name="color_green">緑</string>
+    <string name="color_black">黒</string>
+</resources>
