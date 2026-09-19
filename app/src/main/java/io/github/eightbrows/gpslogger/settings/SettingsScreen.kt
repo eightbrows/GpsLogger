@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.settings
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.annotation.StringRes
 import io.github.eightbrows.gpslogger.R
 import androidx.compose.ui.res.stringResource
@@ -126,6 +128,48 @@ fun SettingsScreen() {
                 textAlign = TextAlign.Center
             )
         }
+
+        // --- 表示の強調 ---
+        val altitudeEmphasis by Settings.altitudeEmphasis.collectAsState()
+        val speedEmphasis by Settings.speedEmphasis.collectAsState()
+        val constellationEmphasis by Settings.constellationEmphasis.collectAsState()
+        val dopEmphasis by Settings.dopEmphasis.collectAsState()
+        SectionLabel(stringResource(R.string.settings_emphasis), top = 14.dp)
+        SubText(stringResource(R.string.settings_emphasis_note))
+        EmphasisRow(
+            label = stringResource(R.string.settings_emphasis_altitude),
+            options = AltitudeUnit.entries,
+            selected = altitudeEmphasis,
+            optionLabel = { it.symbol },
+            onToggle = { Settings.toggleAltitudeEmphasis(it) }
+        )
+        EmphasisRow(
+            label = stringResource(R.string.settings_emphasis_speed),
+            options = SpeedUnit.entries,
+            selected = speedEmphasis,
+            optionLabel = { it.symbol },
+            onToggle = { Settings.toggleSpeedEmphasis(it) },
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        EmphasisRow(
+            label = stringResource(R.string.settings_emphasis_constellation),
+            options = ConstellationCode.entries,
+            selected = constellationEmphasis,
+            optionLabel = { it.name },
+            onToggle = { Settings.toggleConstellationEmphasis(it) },
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        EmphasisNote(stringResource(R.string.settings_emphasis_constellation_note))
+        EmphasisRow(
+            // DOP は日英共通の専門用語
+            label = "DOP",
+            options = DopMetric.entries,
+            selected = dopEmphasis,
+            optionLabel = { it.name },
+            onToggle = { Settings.toggleDopEmphasis(it) },
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        EmphasisNote(stringResource(R.string.settings_emphasis_dop_note))
 
         // --- 軌跡の色 ---
         SectionLabel(stringResource(R.string.settings_track_color), top = 14.dp)
@@ -281,6 +325,108 @@ private fun <T> SegmentedControl(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable(enabled = enabled) { onSelect(option) }
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    label(option),
+                    fontSize = 12.sp,
+                    color = when {
+                        isSelected -> MaterialTheme.colorScheme.onPrimary
+                        !enabled -> MaterialTheme.colorScheme.outline
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 1,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+/** 強調の選択肢（記号）の意味を示す注記。「うるう秒」の説明文と同じ見た目 */
+@Composable
+private fun EmphasisNote(text: String) {
+    Text(
+        text,
+        Modifier.padding(top = 2.dp),
+        fontSize = 11.sp,
+        // 狭い画面で折り返したときに行間が空きすぎないよう詰める
+        lineHeight = 14.sp,
+        color = MaterialTheme.colorScheme.outline
+    )
+}
+
+/** 「ラベル＋複数選択の帯」を1行に並べる（縦の場所を取らないよう、ラベルは帯の左） */
+@Composable
+private fun <T> EmphasisRow(
+    label: String,
+    options: List<T>,
+    selected: Set<T>,
+    optionLabel: (T) -> String,
+    onToggle: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            Modifier.width(64.dp),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        MultiSegmentedControl(
+            options = options,
+            selected = selected,
+            label = optionLabel,
+            onToggle = onToggle,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/**
+ * SegmentedControl の複数選択版。見た目は同じで、各セグメントを個別にオン／オフする。
+ * 読み上げでは各セグメントをチェックボックスとして扱う。
+ */
+@Composable
+private fun <T> MultiSegmentedControl(
+    options: List<T>,
+    selected: Set<T>,
+    label: (T) -> String,
+    onToggle: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier
+            .height(IntrinsicSize.Min)
+            .clip(shape)
+            .border(0.5.dp, MaterialTheme.colorScheme.outline, shape)
+    ) {
+        options.forEachIndexed { index, option ->
+            if (index > 0) {
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.outline)
+                )
+            }
+            val isSelected = option in selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .toggleable(
+                        value = isSelected,
+                        enabled = enabled,
+                        role = Role.Checkbox,
+                        onValueChange = { onToggle(option) }
+                    )
                     .background(
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
                     )

@@ -151,6 +151,13 @@
     <string name="settings_coord_dms">度分秒</string>
     <string name="settings_track_color">軌跡の色</string>
     <string name="settings_track_color_note">記録中とプレビュー中で色を分けられます</string>
+    <string name="settings_emphasis">表示の強調</string>
+    <string name="settings_emphasis_note">数値ページで選んだ項目を枠で囲んで表示します</string>
+    <string name="settings_emphasis_altitude">高度</string>
+    <string name="settings_emphasis_speed">速度</string>
+    <string name="settings_emphasis_constellation">衛星種別</string>
+    <string name="settings_emphasis_constellation_note">衛星種別: G=GPS R=GLONASS E=Galileo C=BeiDou J=QZSS S=SBAS I=NavIC</string>
+    <string name="settings_emphasis_dop_note">DOP: P=位置 H=水平 V=垂直 G=幾何 T=時刻</string>
     <string name="settings_wakelock">WakeLockを使用</string>
     <string name="settings_wakelock_note">画面OFF時の取りこぼしを防止（電池消費が増加、端末の節電機能により効果が制限される場合あり）</string>
     <string name="settings_leap_seconds">うるう秒（GPS − UTC）</string>

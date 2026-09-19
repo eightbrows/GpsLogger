@@ -15,6 +15,22 @@ enum class CoordFormat { DECIMAL, DMS }
 /** テーマの選択 */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** 数値ページの高度の単位（表示順） */
+enum class AltitudeUnit(val symbol: String) { M("m"), FT("ft") }
+
+/** 数値ページの速度の単位（表示順） */
+enum class SpeedUnit(val symbol: String) { MPS("m/s"), KMH("km/h"), KT("kt") }
+
+/**
+ * 数値ページの衛星種別（RINEX の系統記号、表示順）。
+ * G=GPS, R=GLONASS, E=Galileo, C=BeiDou, J=QZSS, S=SBAS, I=NavIC(IRNSS)。
+ * 名前をそのまま保存するので、保存内容は RINEX 記号の集合になる。
+ */
+enum class ConstellationCode { G, R, E, C, J, S, I }
+
+/** 数値ページの DOP の指標（表示順）。名前をそのまま保存する */
+enum class DopMetric { P, H, V, G, T }
+
 object Settings {
 
     private lateinit var prefs: SharedPreferences
@@ -65,7 +81,77 @@ object Settings {
         _languageMode.value = runCatching {
             LanguageMode.valueOf(prefs.getString(KEY_LANGUAGE_MODE, LanguageMode.SYSTEM.name)!!)
         }.getOrDefault(LanguageMode.SYSTEM)
+
+        _altitudeEmphasis.value = readUnitSet(KEY_ALTITUDE_EMPHASIS, AltitudeUnit.entries)
+        _speedEmphasis.value = readUnitSet(KEY_SPEED_EMPHASIS, SpeedUnit.entries)
+        _constellationEmphasis.value =
+            readUnitSet(KEY_CONSTELLATION_EMPHASIS, ConstellationCode.entries)
+        _dopEmphasis.value = readUnitSet(KEY_DOP_EMPHASIS, DopMetric.entries)
     }
+
+    /**
+     * 単位の集合を読む。一度も保存していなければ全単位（初期値）、
+     * 空で保存されていれば空集合のまま返す。知らない名前は無視する。
+     */
+    private fun <E : Enum<E>> readUnitSet(key: String, all: List<E>): Set<E> {
+        val names = prefs.getStringSet(key, null) ?: return all.toSet()
+        return all.filterTo(LinkedHashSet()) { it.name in names }
+    }
+
+    private fun <E : Enum<E>> writeUnitSet(key: String, units: Set<E>) {
+        // getStringSet の戻り値は変更不可なので、毎回新しい集合を渡す
+        prefs.edit { putStringSet(key, units.mapTo(HashSet()) { it.name }) }
+    }
+
+    // ---- 数値ページの単位の強調（選んだ単位を枠で囲む。衛星種別・DOP も同じ） ----
+
+    private val _altitudeEmphasis = MutableStateFlow(AltitudeUnit.entries.toSet())
+    val altitudeEmphasis: StateFlow<Set<AltitudeUnit>> = _altitudeEmphasis.asStateFlow()
+
+    private val _speedEmphasis = MutableStateFlow(SpeedUnit.entries.toSet())
+    val speedEmphasis: StateFlow<Set<SpeedUnit>> = _speedEmphasis.asStateFlow()
+
+    /** 高度の単位の強調を切り替える。すべて外してもよい */
+    fun toggleAltitudeEmphasis(unit: AltitudeUnit) {
+        val next = _altitudeEmphasis.value.let { if (unit in it) it - unit else it + unit }
+        _altitudeEmphasis.value = next
+        writeUnitSet(KEY_ALTITUDE_EMPHASIS, next)
+    }
+
+    /** 速度の単位の強調を切り替える。すべて外してもよい */
+    fun toggleSpeedEmphasis(unit: SpeedUnit) {
+        val next = _speedEmphasis.value.let { if (unit in it) it - unit else it + unit }
+        _speedEmphasis.value = next
+        writeUnitSet(KEY_SPEED_EMPHASIS, next)
+    }
+
+    private const val KEY_ALTITUDE_EMPHASIS = "altitude_emphasis"
+    private const val KEY_SPEED_EMPHASIS = "speed_emphasis"
+
+    // ---- 数値ページの衛星種別・DOP の強調（選んだ項目を枠で囲む） ----
+
+    private val _constellationEmphasis = MutableStateFlow(ConstellationCode.entries.toSet())
+    val constellationEmphasis: StateFlow<Set<ConstellationCode>> = _constellationEmphasis.asStateFlow()
+
+    private val _dopEmphasis = MutableStateFlow(DopMetric.entries.toSet())
+    val dopEmphasis: StateFlow<Set<DopMetric>> = _dopEmphasis.asStateFlow()
+
+    /** 衛星種別の強調を切り替える。すべて外してもよい */
+    fun toggleConstellationEmphasis(code: ConstellationCode) {
+        val next = _constellationEmphasis.value.let { if (code in it) it - code else it + code }
+        _constellationEmphasis.value = next
+        writeUnitSet(KEY_CONSTELLATION_EMPHASIS, next)
+    }
+
+    /** DOP の指標の強調を切り替える。すべて外してもよい */
+    fun toggleDopEmphasis(metric: DopMetric) {
+        val next = _dopEmphasis.value.let { if (metric in it) it - metric else it + metric }
+        _dopEmphasis.value = next
+        writeUnitSet(KEY_DOP_EMPHASIS, next)
+    }
+
+    private const val KEY_CONSTELLATION_EMPHASIS = "constellation_emphasis"
+    private const val KEY_DOP_EMPHASIS = "dop_emphasis"
 
     fun setIntervalSec(sec: Int) {
         _intervalSec.value = sec

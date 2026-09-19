@@ -147,6 +147,13 @@
     <string name="settings_coord_dms">DMS</string>
     <string name="settings_track_color">Track color</string>
     <string name="settings_track_color_note">Use different colors for preview and recording</string>
+    <string name="settings_emphasis">Display emphasis</string>
+    <string name="settings_emphasis_note">Selected items are outlined on the numeric page</string>
+    <string name="settings_emphasis_altitude">Altitude</string>
+    <string name="settings_emphasis_speed">Speed</string>
+    <string name="settings_emphasis_constellation">Systems</string>
+    <string name="settings_emphasis_constellation_note">Systems: G=GPS R=GLONASS E=Galileo C=BeiDou J=QZSS S=SBAS I=NavIC</string>
+    <string name="settings_emphasis_dop_note">DOP: P=Position H=Horizontal V=Vertical G=Geometric T=Time</string>
     <string name="settings_wakelock">Use WakeLock</string>
     <string name="settings_wakelock_note">Prevents missed fixes while the screen is off (uses more battery; the device\'s power saving may limit the effect)</string>
     <string name="settings_leap_seconds">Leap seconds (GPS − UTC)</string>
