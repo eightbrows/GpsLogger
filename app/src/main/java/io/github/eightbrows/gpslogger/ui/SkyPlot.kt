@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.ui
 
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import android.location.GnssStatus
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -107,8 +109,8 @@ private fun SideStats(
     ) {
         // 衛星数
         val used = sats.count { it.usedInFix }
-        StatRow("使用", "$used", emphasize = true)
-        StatRow("可視", "${sats.size}", emphasize = true)
+        StatRow(stringResource(R.string.sat_used), "$used", emphasize = true)
+        StatRow(stringResource(R.string.sat_visible), "${sats.size}", emphasize = true)
 
         HorizontalDivider(Modifier.padding(vertical = 3.dp))
 
@@ -132,7 +134,7 @@ private fun SideStats(
             }
         }
         if (present.isEmpty()) {
-            Text("衛星なし", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+            Text(stringResource(R.string.sky_no_satellites), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
         }
 
         HorizontalDivider(Modifier.padding(vertical = 3.dp))

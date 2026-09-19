@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.ui
 
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,7 +81,7 @@ fun AltitudePage(
     Box(Modifier.fillMaxSize()) {
         if (points.size < 2) {
             Text(
-                "データがありません",
+                stringResource(R.string.alt_no_data),
                 Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.outline
             )
@@ -258,7 +260,7 @@ fun AltitudePage(
         val maxA = points.maxOf { it.altitude }
         Column(Modifier.align(Alignment.TopStart).padding(8.dp)) {
             Text(
-                "%.1f 〜 %.1f m  ×%.1f".format(minA, maxA, zoom),
+                stringResource(R.string.alt_range_zoom, minA, maxA, zoom),
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -271,7 +273,7 @@ fun AltitudePage(
                     LegendSwatch(lineColor)
                     Text("GPS", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
                     LegendSwatch(baroColor, Modifier.padding(start = 6.dp))
-                    Text("気圧", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.alt_legend_baro), fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
                 }
             }
         }

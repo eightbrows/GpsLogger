@@ -13,8 +13,11 @@ import java.util.concurrent.TimeUnit
 
 class LogWriter(
     private val sessionDir: File,
-    private val onError: ((String) -> Unit)? = null
+    private val onError: ((WriteError, String?) -> Unit)? = null
 ) {
+
+    /** 書き込みエラーの種類。文言は言語設定を知っている呼び出し側で決める */
+    enum class WriteError { CREATE_DIR, WRITE, CLOSE }
 
     private val queue = LinkedBlockingQueue<LogEvent>()
     private var thread: Thread? = null
@@ -29,7 +32,7 @@ class LogWriter(
         if (running) return
         if (!sessionDir.exists() && !sessionDir.mkdirs()) {
             Log.e(TAG, "failed to create session dir")
-            onError?.invoke("保存先フォルダを作成できませんでした")
+            onError?.invoke(WriteError.CREATE_DIR, null)
             return
         }
         running = true
@@ -101,12 +104,12 @@ class LogWriter(
             }
         } catch (e: Exception) {
             Log.e(TAG, "writer error", e)
-            onError?.invoke("記録の書き込みに失敗しました: ${e.message}")
+            onError?.invoke(WriteError.WRITE, e.message)
         } finally {
             runCatching { trackWriter.flush(); trackWriter.close() }
-                .onFailure { onError?.invoke("記録の保存に失敗しました") }
+                .onFailure { onError?.invoke(WriteError.CLOSE, null) }
             runCatching { satsWriter.flush(); satsWriter.close() }
-                .onFailure { onError?.invoke("記録の保存に失敗しました") }
+                .onFailure { onError?.invoke(WriteError.CLOSE, null) }
             Log.d(TAG, "writer closed (final flush done)")
         }
     }

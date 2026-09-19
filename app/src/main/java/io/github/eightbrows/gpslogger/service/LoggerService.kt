@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.service
 
+import io.github.eightbrows.gpslogger.settings.AppLanguage
+import androidx.annotation.StringRes
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -180,7 +182,7 @@ class LoggerService : Service() {
             val baseDir = getExternalFilesDir(null)
             if (baseDir == null) {
                 Log.e(TAG, "external files dir unavailable")
-                GnssStateHolder.setLoggingError("保存先が利用できません")
+                GnssStateHolder.setLoggingError(text(R.string.error_storage_unavailable))
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return
@@ -192,8 +194,8 @@ class LoggerService : Service() {
             val sessionDir = File(baseDir, sessionName)
             GnssStateHolder.setCurrentSession(sessionDir)
             this.sessionDir = sessionDir
-            logWriter = LogWriter(sessionDir) { message ->
-                GnssStateHolder.setLoggingError(message)
+            logWriter = LogWriter(sessionDir) { error, detail ->
+                GnssStateHolder.setLoggingError(writeErrorMessage(error, detail))
             }.also { it.start() }
             satEpochId = 0L
             sessionActive = true
@@ -257,7 +259,7 @@ class LoggerService : Service() {
             startLocationUpdates()
         } catch (e: SecurityException) {
             Log.e(TAG, "location permission missing", e)
-            GnssStateHolder.setLoggingError("位置情報の権限がありません")
+            GnssStateHolder.setLoggingError(text(R.string.error_location_permission))
             stopLogging()
             return
         }
@@ -404,10 +406,24 @@ class LoggerService : Service() {
                 Log.d(TAG, "meta.json written: ${dir.name}")
             } catch (e: Exception) {
                 Log.e(TAG, "failed to write meta.json", e)
-                GnssStateHolder.setLoggingError("記録情報（meta.json）の保存に失敗しました")
+                GnssStateHolder.setLoggingError(text(R.string.error_meta_save))
             }
         }, "MetaWriter").start()
     }
+
+    /**
+     * アプリの表示言語で文字列を取る。
+     * Android 12 以前はアプリ別の言語が Service に自動では反映されないため、ここを通す。
+     */
+    private fun text(@StringRes id: Int, vararg args: Any): String =
+        AppLanguage.localizedContext(this).getString(id, *args)
+
+    private fun writeErrorMessage(error: LogWriter.WriteError, detail: String?): String =
+        when (error) {
+            LogWriter.WriteError.CREATE_DIR -> text(R.string.error_create_session_dir)
+            LogWriter.WriteError.WRITE -> text(R.string.error_write_failed, detail.orEmpty())
+            LogWriter.WriteError.CLOSE -> text(R.string.error_save_failed)
+        }
 
     private fun buildNotification(): Notification {
         // タップでアプリに戻る
@@ -432,11 +448,12 @@ class LoggerService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(
-                if (paused) "一時停止中  $elapsed" else "位置記録中  $elapsed"
+                if (paused) text(R.string.notification_title_paused, elapsed)
+                else text(R.string.notification_title_recording, elapsed)
             )
             .setContentText(
-                if (paused) "${fixCount}点 ・ 測位停止中"
-                else "$fixState ・ ${fixCount}点 ・ 衛星 $usedSats"
+                if (paused) text(R.string.notification_text_paused, fixCount)
+                else text(R.string.notification_text_recording, fixState, fixCount, usedSats)
             )
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
@@ -453,7 +470,7 @@ class LoggerService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "現在位置記録",
+            text(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_LOW
         )
         getSystemService(NotificationManager::class.java)

@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.session
 
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -112,7 +114,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
             }
             Text(sessionDir.name, Modifier.weight(1f), fontSize = 12.sp)
             // 記録中のセッションは停止時に meta.json が書き出され、編集が上書きされるので開かせない
@@ -123,7 +125,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
             ) {
                 Icon(
                     Icons.Filled.Edit,
-                    contentDescription = "記録情報を編集",
+                    contentDescription = stringResource(R.string.replay_edit_meta),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -134,7 +136,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
             ) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "削除",
+                    contentDescription = stringResource(R.string.action_delete),
                     tint = if (isRecordingThis) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     else MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
@@ -152,7 +154,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
             session == null || session.track.isEmpty() -> Box(
                 Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
-            ) { Text("記録を読み込めませんでした") }
+            ) { Text(stringResource(R.string.replay_load_failed)) }
 
             else -> {
                 val track = session.track
@@ -218,7 +220,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                         ) {
                             StepButton(
                                 icon = Icons.Filled.SkipPrevious,
-                                contentDescription = "前へ",
+                                contentDescription = stringResource(R.string.replay_previous),
                                 enabled = index > 0,
                                 onStep = {
                                     val step = 1f / (track.size - 1).coerceAtLeast(1)
@@ -246,7 +248,7 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
 
                             StepButton(
                                 icon = Icons.Filled.SkipNext,
-                                contentDescription = "次へ",
+                                contentDescription = stringResource(R.string.replay_next),
                                 enabled = index < track.size - 1,
                                 onStep = {
                                     val step = 1f / (track.size - 1).coerceAtLeast(1)
@@ -262,8 +264,8 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                             Text(formatTime(record.epochMs), fontSize = 11.sp)
                             Text("${index + 1} / ${track.size}", fontSize = 11.sp)
                             Text(
-                                if (satEpoch == null) "衛星: 該当なし"
-                                else "衛星: ${satEpoch.satellites.size}",
+                                if (satEpoch == null) stringResource(R.string.replay_sats_none)
+                                else stringResource(R.string.replay_sats, satEpoch.satellites.size),
                                 fontSize = 11.sp
                             )
                         }
@@ -276,12 +278,12 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("記録を削除") },
+            title = { Text(stringResource(R.string.replay_delete_title)) },
             text = {
                 Column {
                     Text(formatSessionLabel(sessionDir.name), fontSize = 14.sp)
                     Text(
-                        "この操作は取り消せません。",
+                        stringResource(R.string.undo_warning),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp)
@@ -294,11 +296,11 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                     showDeleteConfirm = false
                     onBack()
                 }) {
-                    Text("削除", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("キャンセル") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }

@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.ui
 
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import android.location.GnssStatus
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -113,54 +115,54 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         val startMs = snapshot.sessionStartMs
         val endMs = snapshot.sessionEndMs
         NumRow(
-            "記録",
+            stringResource(R.string.num_session),
             if (startMs > 0) "${formatTimeOnly(startMs)} → ${if (endMs > 0) formatTimeOnly(endMs) else DASH}"
             else DASH
         )
         NumRow(
-            "記録時間",
-            "${formatDuration(startMs, endMs, snapshot.timeMs)} (${snapshot.trackPoints.size}点)"
+            stringResource(R.string.num_duration),
+            stringResource(R.string.num_duration_value, formatDuration(startMs, endMs, snapshot.timeMs), snapshot.trackPoints.size)
         )
 
         NumDivider()
 
         // --- 位置 ---
         NumRow(
-            "緯度",
+            stringResource(R.string.num_latitude),
             if (hasPos) "%.7f / %s".format(
                 snapshot.latitude, CoordFormatter.latitudeDms(snapshot.latitude!!)
             ) else DASH
         )
         NumRow(
-            "経度",
+            stringResource(R.string.num_longitude),
             if (hasPos) "%.7f / %s".format(
                 snapshot.longitude, CoordFormatter.longitudeDms(snapshot.longitude!!)
             ) else DASH
         )
-        NumRow("高度 GPS", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
+        NumRow(stringResource(R.string.num_alt_gps), if (hasPos) formatAltitude(snapshot.altitude) else DASH)
         NumRow(
-            "高度 気圧",
+            stringResource(R.string.num_alt_baro),
             snapshot.pressureHpa?.let {
                 formatAltitude(BarometerReader.altitudeM(it, snapshot.basePressureHpa).toDouble())
             } ?: DASH
         )
         NumRow(
-            "精度（1σ）",
+            stringResource(R.string.num_accuracy),
             if (hasPos) "H %.1f m / V %.1f m".format(snapshot.accuracy, snapshot.verticalAccuracy) else DASH
         )
-        NumRow("速度", if (hasPos) formatSpeed(snapshot.speed) else DASH)
+        NumRow(stringResource(R.string.num_speed), if (hasPos) formatSpeed(snapshot.speed) else DASH)
         NumRow(
-            "方位",
-            if (hasPos) "%.1f deg (精度+/- %.1f)".format(snapshot.bearing, snapshot.bearingAccuracy)
+            stringResource(R.string.num_bearing),
+            if (hasPos) stringResource(R.string.num_bearing_value, snapshot.bearing, snapshot.bearingAccuracy)
             else DASH
         )
 
         NumDivider()
 
         // --- 衛星・DOP ---
-        NumRow("衛星数", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
-        ConstellationRow("種別1", snapshot.satellites, GROUP_WEST)
-        ConstellationRow("種別2", snapshot.satellites, GROUP_OTHER)
+        NumRow(stringResource(R.string.num_satellites), stringResource(R.string.sat_used_visible, snapshot.satsUsed, snapshot.satsInView))
+        ConstellationRow(stringResource(R.string.num_group1), snapshot.satellites, GROUP_WEST)
+        ConstellationRow(stringResource(R.string.num_group2), snapshot.satellites, GROUP_OTHER)
         NumRow(
             "DOP1",
             if (dop != null) "P %.1f / H %.1f / V %.1f".format(dop.pdop, dop.hdop, dop.vdop) else DASH
@@ -249,13 +251,13 @@ private fun NumRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth()) {
         Text(
             label,
-            Modifier.weight(0.8f),
+            Modifier.weight(0.9f),
             fontSize = 13.sp,
             lineHeight = 13.sp
         )
         Text(
             value,
-            Modifier.weight(2.2f),
+            Modifier.weight(2.1f),
             fontSize = 13.sp,
             lineHeight = 13.sp
         )
@@ -275,7 +277,7 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                 .padding(horizontal = 12.dp, vertical = 1.dp)
         ) {
             Text(
-                "使用 $used / 可視 ${sats.size}",
+                stringResource(R.string.sat_used_visible, used, sats.size),
                 fontSize = 12.sp,
                 lineHeight = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -288,12 +290,12 @@ private fun SatListPage(snapshot: ViewSnapshot) {
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 1.dp)
         ) {
-            Text("系統", Modifier.weight(1.3f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+            Text(stringResource(R.string.satlist_system), Modifier.weight(1.3f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
             Text("SV", Modifier.weight(0.6f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
             Row(Modifier.weight(2.0f)) {
-                Text("使用", Modifier.weight(1f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
-                Text("方位", Modifier.weight(1.2f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
-                Text("仰角", Modifier.weight(1.1f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                Text(stringResource(R.string.sat_used), Modifier.weight(1f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                Text(stringResource(R.string.satlist_azimuth), Modifier.weight(1.2f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
+                Text(stringResource(R.string.satlist_elevation), Modifier.weight(1.1f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
                 Text("C/N0", Modifier.weight(1.2f), fontSize = 11.sp, lineHeight = 12.sp, textAlign = TextAlign.End)
             }
         }
@@ -373,7 +375,7 @@ internal fun constellationName(type: Int): String = when (type) {
     GnssStatus.CONSTELLATION_QZSS -> "QZSS"
     GnssStatus.CONSTELLATION_SBAS -> "SBAS"
     CONSTELLATION_IRNSS -> "IRNSS"
-    else -> "不明"
+    else -> "UNKNOWN"
 }
 
 /** 記録時間。終了時刻があればその差、なければ現在時刻との差 */

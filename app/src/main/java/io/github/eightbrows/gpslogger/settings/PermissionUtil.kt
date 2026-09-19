@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.settings
 
+import io.github.eightbrows.gpslogger.R
+import androidx.annotation.StringRes
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -11,30 +13,30 @@ import androidx.core.content.ContextCompat
 
 /** アプリが使う権限の種別 */
 enum class AppPermission(
-    val label: String,
-    val description: String,
+    @param:StringRes val labelRes: Int,
+    @param:StringRes val descriptionRes: Int,
     val manifestName: String,
     val minSdk: Int,
     /** 実行時ダイアログで要求できるか（不可ならシステム設定へ誘導） */
     val requestable: Boolean
 ) {
     FINE_LOCATION(
-        "位置情報（正確）",
-        "GNSSによる測位に必要です",
+        R.string.perm_fine_location,
+        R.string.perm_fine_location_desc,
         Manifest.permission.ACCESS_FINE_LOCATION,
         1,
         true
     ),
     BACKGROUND_LOCATION(
-        "位置情報（常に許可）",
-        "画面を閉じても記録を続けるために必要です",
+        R.string.perm_background_location,
+        R.string.perm_background_location_desc,
         Manifest.permission.ACCESS_BACKGROUND_LOCATION,
         Build.VERSION_CODES.Q,
         false
     ),
     NOTIFICATIONS(
-        "通知",
-        "記録中であることを通知領域に表示します",
+        R.string.perm_notifications,
+        R.string.perm_notifications_desc,
         "android.permission.POST_NOTIFICATIONS",
         Build.VERSION_CODES.TIRAMISU,
         true

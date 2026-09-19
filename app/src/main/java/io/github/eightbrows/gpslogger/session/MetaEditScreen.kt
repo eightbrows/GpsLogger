@@ -1,5 +1,10 @@
 package io.github.eightbrows.gpslogger.session
 
+import android.content.res.Resources
+import androidx.compose.ui.platform.LocalResources
+import androidx.annotation.StringRes
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,6 +60,7 @@ import java.io.File
 @Composable
 fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
+    val resources = LocalResources.current
 
     var meta by remember { mutableStateOf<SessionMeta?>(null) }
     var fileExists by remember { mutableStateOf(true) }
@@ -75,10 +81,10 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
             }
             Column(Modifier.weight(1f)) {
-                Text("記録情報", fontSize = 14.sp)
+                Text(stringResource(R.string.meta_title), fontSize = 14.sp)
                 Text(
                     sessionDir.name,
                     fontSize = 11.sp,
@@ -98,7 +104,7 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
 
         if (!fileExists) {
             Text(
-                "meta.json がありません。項目を保存すると新しく作成されます。",
+                stringResource(R.string.meta_missing),
                 Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.secondaryContainer)
@@ -108,7 +114,7 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
             )
         }
         Text(
-            "鉛筆の付いた項目をタップすると編集できます",
+            stringResource(R.string.meta_hint_tap),
             Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -130,12 +136,12 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
             initialText = MetaPaths.editText(base, path),
             singleLine = path != "comment",
             keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text,
-            hint = hintFor(path),
+            hint = stringResource(hintFor(path)),
             onDismiss = { editingPath = null },
             onSave = { input ->
                 // 失敗時はメッセージを返し、ダイアログは閉じない
                 when (val result = MetaPaths.apply(base, path, input)) {
-                    is MetaEditResult.Failure -> result.message
+                    is MetaEditResult.Failure -> failureMessage(resources, result)
                     is MetaEditResult.Success -> try {
                         withContext(Dispatchers.IO) {
                             result.meta.writeTo(sessionDir)
@@ -149,7 +155,7 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        "保存に失敗しました: ${e.message ?: e.javaClass.simpleName}"
+                        resources.getString(R.string.meta_save_failed, e.message ?: e.javaClass.simpleName)
                     }
                 }
             }
@@ -157,17 +163,30 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
     }
 }
 
-private fun hintFor(path: String): String = when (MetaPaths.pattern(path)) {
-    "comment" -> "自由に入力できます"
-    "tags" -> "カンマ区切りで入力（例: 旅行, お気に入り）"
-    "basePressureHpa" -> "単位 hPa。空欄にはできません"
-    else -> "単位 hPa。空欄にすると未設定（記録全体の値を使用）"
+@StringRes
+private fun hintFor(path: String): Int = when (MetaPaths.pattern(path)) {
+    "comment" -> R.string.meta_hint_comment
+    "tags" -> R.string.meta_hint_tags
+    "basePressureHpa" -> R.string.meta_hint_base_pressure
+    else -> R.string.meta_hint_segment_pressure
 }
+
+private fun failureMessage(resources: Resources, failure: MetaEditResult.Failure): String =
+    when (failure.reason) {
+        MetaEditResult.Reason.NOT_EDITABLE ->
+            resources.getString(R.string.meta_error_not_editable)
+        MetaEditResult.Reason.PRESSURE_REQUIRED ->
+            resources.getString(R.string.meta_error_pressure_required)
+        MetaEditResult.Reason.INVALID_PRESSURE ->
+            resources.getString(R.string.meta_error_invalid_pressure)
+        MetaEditResult.Reason.SEGMENT_NOT_FOUND ->
+            resources.getString(R.string.meta_error_segment_not_found, failure.segmentIndex ?: -1)
+    }
 
 @Composable
 private fun MetaRow(entry: MetaEntry, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val empty = entry.value.isEmpty() || entry.value == MetaPaths.UNSET
+    val empty = entry.value.isNullOrEmpty()
 
     // 読み取り専用の行はクリックを受け付けない（押しても波紋が出ない）
     val clickable = if (entry.editable) Modifier.clickable(onClick = onClick) else Modifier
@@ -187,7 +206,11 @@ private fun MetaRow(entry: MetaEntry, onClick: () -> Unit) {
             color = if (entry.editable) scheme.primary else scheme.onSurfaceVariant
         )
         Text(
-            if (entry.value.isEmpty()) "（空）" else entry.value,
+            when {
+                entry.value == null -> stringResource(R.string.meta_unset)
+                entry.value.isEmpty() -> stringResource(R.string.meta_empty)
+                else -> entry.value
+            },
             Modifier.weight(1.1f),
             fontSize = 13.sp,
             maxLines = 3,
@@ -201,7 +224,7 @@ private fun MetaRow(entry: MetaEntry, onClick: () -> Unit) {
         if (entry.editable) {
             Icon(
                 Icons.Filled.Edit,
-                contentDescription = "編集",
+                contentDescription = stringResource(R.string.meta_edit),
                 tint = scheme.primary,
                 modifier = Modifier.size(16.dp)
             )
@@ -260,10 +283,10 @@ private fun MetaEditDialog(
                         saving = false
                     }
                 }
-            ) { Text(if (saving) "保存中…" else "保存") }
+            ) { Text(stringResource(if (saving) R.string.meta_saving else R.string.meta_save)) }
         },
         dismissButton = {
-            TextButton(enabled = !saving, onClick = onDismiss) { Text("キャンセル") }
+            TextButton(enabled = !saving, onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13 以降のシステム設定「アプリの言語」に出す言語 -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="ja" />
+    <locale android:name="en" />
+</locale-config>

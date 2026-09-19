@@ -8,15 +8,18 @@ import java.time.format.DateTimeFormatter
 data class MetaEntry(
     /** "comment" や "segments[0].basePressureHpa" のようなパス */
     val path: String,
-    /** 表示用の値 */
-    val value: String,
+    /** 表示用の値。null は未設定 */
+    val value: String?,
     val editable: Boolean
 )
 
 /** 編集内容を SessionMeta に書き戻した結果 */
 sealed interface MetaEditResult {
     data class Success(val meta: SessionMeta) : MetaEditResult
-    data class Failure(val message: String) : MetaEditResult
+    /** 失敗の理由。文言は画面側で表示言語に合わせて決める */
+    data class Failure(val reason: Reason, val segmentIndex: Int? = null) : MetaEditResult
+
+    enum class Reason { NOT_EDITABLE, PRESSURE_REQUIRED, INVALID_PRESSURE, SEGMENT_NOT_FOUND }
 }
 
 /**
@@ -24,9 +27,6 @@ sealed interface MetaEditResult {
  * 表示・編集可否の判定・値の書き戻しをここに集め、画面側はパスだけを扱う。
  */
 object MetaPaths {
-
-    /** null の値の表示 */
-    const val UNSET = "未設定"
 
     private val INDEX = Regex("""\[\d+]""")
     private val SEGMENT_BASE_PRESSURE = Regex("""^segments\[(\d+)]\.basePressureHpa$""")
@@ -42,8 +42,6 @@ object MetaPaths {
         "segments[*].basePressureHpa"
     )
 
-    private const val INVALID_PRESSURE = "気圧は正の数値で入力してください（例: 1013.25）"
-
     /** パスの番号部分をワイルドカードに置き換える。"segments[12].end" → "segments[*].end" */
     fun pattern(path: String): String = path.replace(INDEX, "[*]")
 
@@ -51,7 +49,7 @@ object MetaPaths {
 
     /** meta.json の構造どおりの順序で平坦化する */
     fun flatten(meta: SessionMeta): List<MetaEntry> {
-        val rows = ArrayList<Pair<String, String>>()
+        val rows = ArrayList<Pair<String, String?>>()
         rows += "schemaVersion" to meta.schemaVersion.toString()
         rows += "comment" to meta.comment
         rows += "tags" to joinTags(meta.tags)
@@ -65,7 +63,7 @@ object MetaPaths {
             rows += "$p.start" to time(s.start)
             rows += "$p.end" to time(s.end)
             rows += "$p.points" to s.points.toString()
-            rows += "$p.basePressureHpa" to (s.basePressureHpa?.let(::number) ?: UNSET)
+            rows += "$p.basePressureHpa" to s.basePressureHpa?.let(::number)
         }
         rows += "useWakeLock" to meta.useWakeLock.toString()
         rows += "deviceModel" to meta.deviceModel
@@ -90,7 +88,7 @@ object MetaPaths {
      * 不正な入力や編集できないパスは Failure（元の値は変えない）。
      */
     fun apply(meta: SessionMeta, path: String, input: String): MetaEditResult {
-        if (!isEditable(path)) return MetaEditResult.Failure("この項目は編集できません")
+        if (!isEditable(path)) return MetaEditResult.Failure(MetaEditResult.Reason.NOT_EDITABLE)
 
         return when (path) {
             "comment" -> MetaEditResult.Success(meta.copy(comment = input))
@@ -100,25 +98,25 @@ object MetaPaths {
             "basePressureHpa" -> {
                 val text = input.trim()
                 if (text.isEmpty()) {
-                    return MetaEditResult.Failure("基準気圧は空欄にできません")
+                    return MetaEditResult.Failure(MetaEditResult.Reason.PRESSURE_REQUIRED)
                 }
                 val value = parsePressure(text)
-                    ?: return MetaEditResult.Failure(INVALID_PRESSURE)
+                    ?: return MetaEditResult.Failure(MetaEditResult.Reason.INVALID_PRESSURE)
                 MetaEditResult.Success(meta.copy(basePressureHpa = value))
             }
 
             else -> {
                 val index = segmentIndex(path)
-                    ?: return MetaEditResult.Failure("この項目は編集できません")
+                    ?: return MetaEditResult.Failure(MetaEditResult.Reason.NOT_EDITABLE)
                 if (index !in meta.segments.indices) {
-                    return MetaEditResult.Failure("区間 $index が見つかりません")
+                    return MetaEditResult.Failure(MetaEditResult.Reason.SEGMENT_NOT_FOUND, index)
                 }
                 val text = input.trim()
                 // 空欄は「未設定」（セッション全体の基準気圧を使う）
                 val value = if (text.isEmpty()) {
                     null
                 } else {
-                    parsePressure(text) ?: return MetaEditResult.Failure(INVALID_PRESSURE)
+                    parsePressure(text) ?: return MetaEditResult.Failure(MetaEditResult.Reason.INVALID_PRESSURE)
                 }
                 val segments = meta.segments.toMutableList()
                 segments[index] = segments[index].copy(basePressureHpa = value)
@@ -143,6 +141,6 @@ object MetaPaths {
     private fun number(v: Double): String =
         if (v.isFinite()) BigDecimal.valueOf(v).stripTrailingZeros().toPlainString() else v.toString()
 
-    private fun time(t: OffsetDateTime?): String =
-        t?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) ?: UNSET
+    private fun time(t: OffsetDateTime?): String? =
+        t?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 }

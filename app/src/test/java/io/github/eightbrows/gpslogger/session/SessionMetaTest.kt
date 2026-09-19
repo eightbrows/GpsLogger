@@ -165,7 +165,7 @@ class SessionMetaTest {
         assertEquals("2026-09-15T09:20:00+09:00", values["start"])
         assertEquals("15600", values["pointCount"])
         assertEquals("8420.5", values["distanceM"])
-        assertEquals(MetaPaths.UNSET, values["segments[0].basePressureHpa"])
+        assertNull(values["segments[0].basePressureHpa"])
         assertEquals("1011.2", values["segments[1].basePressureHpa"])
         assertEquals("7200", values["segments[0].points"])
         assertEquals("true", values["useWakeLock"])
@@ -175,8 +175,8 @@ class SessionMetaTest {
     fun flatten_nullTimesAndIntegralNumbers() {
         val values = MetaPaths.flatten(SessionMeta(basePressureHpa = 1013.0, distanceM = 12_000_000.0))
             .associate { it.path to it.value }
-        assertEquals(MetaPaths.UNSET, values["start"])
-        assertEquals(MetaPaths.UNSET, values["end"])
+        assertNull(values["start"])
+        assertNull(values["end"])
         // 末尾の .0 は付けず、指数表記にもしない
         assertEquals("1013", values["basePressureHpa"])
         assertEquals("12000000", values["distanceM"])
@@ -299,7 +299,7 @@ class SessionMetaTest {
     @Test
     fun apply_readOnlyPaths_areRejected() {
         MetaPaths.flatten(sample).filterNot { it.editable }.forEach {
-            assertRejected(sample, it.path, it.value)
+            assertRejected(sample, it.path, it.value ?: "")
         }
     }
 

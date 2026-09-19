@@ -1,5 +1,10 @@
 package io.github.eightbrows.gpslogger.session
 
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.annotation.StringRes
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,6 +70,9 @@ import androidx.compose.ui.text.style.TextOverflow
 @Composable
 fun SessionListScreen(onSelect: (File) -> Unit) {
     val context = LocalContext.current
+    // 日付の曜日を表示言語に合わせる
+    val locale = LocalConfiguration.current.locales[0]
+    val resources = LocalResources.current
     var sessions by remember { mutableStateOf<List<File>>(emptyList()) }
     var selectMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -157,7 +165,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 if (ok) {
                     exitSelectMode()
                 } else {
-                    exportError = "エクスポートに失敗しました"
+                    exportError = resources.getString(R.string.history_export_failed)
                 }
             }
         }
@@ -203,7 +211,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                     onClick = { exitSelectMode() },
                     enabled = selectMode
                 ) {
-                    Icon(Icons.Filled.Close, contentDescription = "選択解除")
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.history_clear_selection))
                 }
                 IconButton(
                     onClick = {
@@ -219,10 +227,10 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                     },
                     enabled = visibleSessions.isNotEmpty()
                 ) {
-                    Icon(Icons.Filled.SelectAll, contentDescription = "全選択")
+                    Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.history_select_all))
                 }
                 if (selectMode) {
-                    Text("${selected.size} 件", fontSize = 13.sp)
+                    Text(stringResource(R.string.history_selected_count, selected.size), fontSize = 13.sp)
                 }
             }
 
@@ -231,13 +239,13 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 IconButton(onClick = {
                     importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
                 }) {
-                    Icon(Icons.Filled.FileDownload, contentDescription = "インポート")
+                    Icon(Icons.Filled.FileDownload, contentDescription = stringResource(R.string.history_import))
                 }
                 IconButton(
                     onClick = { if (selected.isNotEmpty()) exportLauncher.launch(defaultZipName(selected)) },
                     enabled = selected.isNotEmpty()
                 ) {
-                    Icon(Icons.Filled.FileUpload, contentDescription = "エクスポート")
+                    Icon(Icons.Filled.FileUpload, contentDescription = stringResource(R.string.history_export))
                 }
                 IconButton(
                     onClick = { if (selected.isNotEmpty()) showConfirm = true },
@@ -245,7 +253,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 ) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "削除",
+                        contentDescription = stringResource(R.string.action_delete),
                         tint = if (selected.isNotEmpty()) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     )
@@ -266,7 +274,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
             )
             if (selectedTags.isNotEmpty()) {
                 Text(
-                    "${visibleSessions.size} / ${sessions.size} 件を表示（選択したタグをすべて含む記録）",
+                    stringResource(R.string.history_filter_count, visibleSessions.size, sessions.size),
                     Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.outline
@@ -282,7 +290,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 horizontalArrangement = Arrangement.Center
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text("  エクスポート中…", fontSize = 12.sp)
+                Text(stringResource(R.string.history_exporting), fontSize = 12.sp)
             }
         }
 
@@ -290,12 +298,12 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
             !listLoaded -> Unit
 
             sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("記録がありません", color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.history_empty), color = MaterialTheme.colorScheme.outline)
             }
 
             visibleSessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "選択したタグをすべて含む記録はありません",
+                    stringResource(R.string.history_filter_empty),
                     color = MaterialTheme.colorScheme.outline
                 )
             }
@@ -344,10 +352,10 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                         }
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(formatSessionName(dir.name), fontSize = 15.sp)
+                                Text(formatSessionName(dir.name, locale), fontSize = 15.sp)
                                 if (isRecording) {
                                     Text(
-                                        "  ● 記録中",
+                                        stringResource(R.string.history_recording_badge),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -381,21 +389,21 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         val targets = visibleSessions.filter { it.name in selected && it.name != currentSession?.name }
         AlertDialog(
             onDismissRequest = { showConfirm = false },
-            title = { Text("記録を削除") },
+            title = { Text(stringResource(R.string.history_delete_title)) },
             text = {
                 Column {
-                    Text("以下の ${targets.size} 件を削除します。", fontSize = 14.sp)
+                    Text(stringResource(R.string.history_delete_message, targets.size), fontSize = 14.sp)
                     Text(
-                        "この操作は取り消せません。",
+                        stringResource(R.string.undo_warning),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                     )
                     targets.take(10).forEach {
-                        Text("・${formatSessionName(it.name)}", fontSize = 12.sp)
+                        Text(stringResource(R.string.history_delete_item, formatSessionName(it.name, locale)), fontSize = 12.sp)
                     }
                     if (targets.size > 10) {
-                        Text("ほか ${targets.size - 10} 件", fontSize = 12.sp)
+                        Text(stringResource(R.string.history_delete_more, targets.size - 10), fontSize = 12.sp)
                     }
                 }
             },
@@ -406,11 +414,11 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                     exitSelectMode()
                     reloadKey++
                 }) {
-                    Text("削除", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirm = false }) { Text("キャンセル") }
+                TextButton(onClick = { showConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -418,17 +426,17 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     importResult?.let { result ->
         AlertDialog(
             onDismissRequest = { importResult = null },
-            title = { Text("インポート結果") },
+            title = { Text(stringResource(R.string.history_import_result)) },
             text = {
                 Column {
                     if (result.error != null) {
-                        Text(result.error, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+                        Text(stringResource(result.error), color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
                     } else {
-                        Text("${result.imported} 件のセッションをインポートしました", fontSize = 14.sp)
+                        Text(stringResource(R.string.history_import_done, result.imported), fontSize = 14.sp)
                     }
                     if (result.skipped > 0) {
                         Text(
-                            "${result.skipped} 件のファイルは形式が不正のためスキップしました",
+                            stringResource(R.string.history_import_skipped, result.skipped),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.outline,
                             modifier = Modifier.padding(top = 4.dp)
@@ -445,7 +453,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     exportError?.let { message ->
         AlertDialog(
             onDismissRequest = { exportError = null },
-            title = { Text("エクスポート") },
+            title = { Text(stringResource(R.string.history_export)) },
             text = { Text(message, fontSize = 14.sp) },
             confirmButton = {
                 TextButton(onClick = { exportError = null }) { Text("OK") }
@@ -476,7 +484,7 @@ private fun TagFilterBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("タグ", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+            Text(stringResource(R.string.history_tags), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
             tags.forEach { t ->
                 FilterChip(
                     selected = t.tag in selected,
@@ -486,28 +494,29 @@ private fun TagFilterBar(
             }
         }
         if (selected.isNotEmpty()) {
-            TextButton(onClick = onClear) { Text("解除", fontSize = 12.sp) }
+            TextButton(onClick = onClear) { Text(stringResource(R.string.history_clear_filter), fontSize = 12.sp) }
         }
     }
 }
 
 /** session_20260720_143000 → 2026-07-20 (月) 14:30:00 */
-private fun formatSessionName(name: String): String {
+private fun formatSessionName(name: String, locale: Locale): String {
     val raw = name.removePrefix("session_")
     return runCatching {
         val parsed = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(raw)
-        SimpleDateFormat("yyyy-MM-dd (E) HH:mm:ss", Locale.JAPAN).format(parsed!!)
+        SimpleDateFormat("yyyy-MM-dd (E) HH:mm:ss", locale).format(parsed!!)
     }.getOrDefault(name)
 }
 
 /** ファイルサイズから概算した点数と容量 */
+@Composable
 private fun describeSession(dir: File): String {
     val track = File(dir, "track.csv")
     val sats = File(dir, "sats.csv")
     val totalKb = (track.length() + sats.length()) / 1024
     val approxPoints = ((track.length() - TRACK_HEADER_BYTES) / TRACK_ROW_BYTES)
         .coerceAtLeast(0)
-    return "約 ${approxPoints} 点 ・ ${totalKb} KB"
+    return stringResource(R.string.history_summary, approxPoints, totalKb)
 }
 
 private const val TRACK_HEADER_BYTES = 180L
@@ -523,7 +532,7 @@ private fun defaultZipName(selected: Set<String>): String {
 private data class ImportResult(
     val imported: Int,
     val skipped: Int,
-    val error: String? = null
+    @param:StringRes val error: Int? = null
 )
 
 /** エントリ名の許可パターン（これ以外は全て拒否） */
@@ -534,7 +543,7 @@ private fun importZip(
     uri: android.net.Uri
 ): ImportResult {
     val baseDir = context.getExternalFilesDir(null)
-        ?: return ImportResult(0, 0, "保存先が利用できません")
+        ?: return ImportResult(0, 0, R.string.error_storage_unavailable)
     val basePath = baseDir.canonicalPath + File.separator
 
     val importedSessions = mutableSetOf<String>()
@@ -566,10 +575,10 @@ private fun importZip(
                     entry = zip.nextEntry
                 }
             }
-        } ?: return ImportResult(0, 0, "ファイルを開けません")
+        } ?: return ImportResult(0, 0, R.string.history_import_error_open)
 
         ImportResult(importedSessions.size, skipped)
     }.getOrElse {
-        ImportResult(importedSessions.size, skipped, "読み込みに失敗しました")
+        ImportResult(importedSessions.size, skipped, R.string.history_import_error_read)
     }
 }

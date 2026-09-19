@@ -1,10 +1,12 @@
 package io.github.eightbrows.gpslogger
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -68,10 +70,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.foundation.layout.navigationBarsPadding
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Settings.init(this)
+        // システムの「アプリの言語」から変えられた場合にも合わせる
+        Settings.syncLanguageMode()
         setContent {
             val themeMode by Settings.themeMode.collectAsState()
             val darkTheme = when (themeMode) {
@@ -174,9 +178,9 @@ fun RecordControlScreen() {
             Column {
                 Text(
                     when {
-                        isPaused -> "⏸ 一時停止中"
-                        isLogging -> "● 記録中"
-                        else -> "○ 停止中"
+                        isPaused -> stringResource(R.string.status_paused)
+                        isLogging -> stringResource(R.string.status_recording)
+                        else -> stringResource(R.string.status_stopped)
                     },
                     fontSize = 13.sp
                 )
@@ -200,7 +204,7 @@ fun RecordControlScreen() {
                     },
                     enabled = !isLogging,
                     contentPadding = compactPadding
-                ) { Text("開始") }
+                ) { Text(stringResource(R.string.record_start)) }
 
                 Button(
                     onClick = {
@@ -211,13 +215,13 @@ fun RecordControlScreen() {
                     contentPadding = compactPadding,
                     // 「一時停止」と「再開」で幅が変わらないよう固定する
                     modifier = Modifier.width(92.dp)
-                ) { Text(if (isPaused) "再開" else "一時停止") }
+                ) { Text(stringResource(if (isPaused) R.string.record_resume else R.string.record_pause)) }
 
                 Button(
                     onClick = { LoggerService.stop(context) },
                     enabled = isLogging,
                     contentPadding = compactPadding
-                ) { Text("停止") }
+                ) { Text(stringResource(R.string.record_stop)) }
             }
         }
 
@@ -237,7 +241,7 @@ fun RecordControlScreen() {
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = { GnssStateHolder.setLoggingError(null) }) {
-                    Text("閉じる", fontSize = 12.sp)
+                    Text(stringResource(R.string.action_close), fontSize = 12.sp)
                 }
             }
         }
@@ -261,10 +265,10 @@ fun RecordControlScreen() {
     if (showPermissionRequired) {
         AlertDialog(
             onDismissRequest = { showPermissionRequired = false },
-            title = { Text("権限が必要です") },
+            title = { Text(stringResource(R.string.permission_required_title)) },
             text = {
                 Text(
-                    "記録を開始するには位置情報の権限が必要です。設定タブから許可してください。",
+                    stringResource(R.string.permission_required_message),
                     fontSize = 14.sp
                 )
             },
@@ -299,7 +303,8 @@ private enum class Tab { RECORD, REPLAY, SETTINGS }
 
 @Composable
 fun AppRoot() {
-    var tab by remember { mutableStateOf(Tab.RECORD) }
+    // 言語の切り替えで Activity が作り直されても、開いていたタブを保つ
+    var tab by rememberSaveable { mutableStateOf(Tab.RECORD) }
     var selectedSession by remember { mutableStateOf<java.io.File?>(null) }
 
     val context = LocalContext.current
@@ -351,9 +356,9 @@ fun AppRoot() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             val items = listOf(
-                Triple(Tab.RECORD, Icons.Filled.Timeline, "記録"),
-                Triple(Tab.REPLAY, Icons.Filled.History, "履歴"),
-                Triple(Tab.SETTINGS, Icons.Filled.Settings, "設定")
+                Triple(Tab.RECORD, Icons.Filled.Timeline, stringResource(R.string.tab_record)),
+                Triple(Tab.REPLAY, Icons.Filled.History, stringResource(R.string.tab_history)),
+                Triple(Tab.SETTINGS, Icons.Filled.Settings, stringResource(R.string.tab_settings))
             )
             items.forEach { (t, icon, label) ->
                 val selected = tab == t
@@ -393,10 +398,10 @@ fun AppRoot() {
                 showPermissionNotice = false
                 Settings.setPermissionNoticeShown(true)
             },
-            title = { Text("権限の許可について") },
+            title = { Text(stringResource(R.string.permission_notice_title)) },
             text = {
                 Text(
-                    "位置情報の記録には権限の許可が必要です。設定タブから許可してください。",
+                    stringResource(R.string.permission_notice_message),
                     fontSize = 14.sp
                 )
             },
@@ -405,13 +410,13 @@ fun AppRoot() {
                     showPermissionNotice = false
                     Settings.setPermissionNoticeShown(true)
                     tab = Tab.SETTINGS
-                }) { Text("設定へ") }
+                }) { Text(stringResource(R.string.action_open_settings)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showPermissionNotice = false
                     Settings.setPermissionNoticeShown(true)
-                }) { Text("後で") }
+                }) { Text(stringResource(R.string.action_later)) }
             }
         )
     }

@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.settings
 
+import io.github.eightbrows.gpslogger.R
+import androidx.annotation.StringRes
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +61,10 @@ object Settings {
         )
 
         _permissionNoticeShown.value = prefs.getBoolean(KEY_PERMISSION_NOTICE, false)
+
+        _languageMode.value = runCatching {
+            LanguageMode.valueOf(prefs.getString(KEY_LANGUAGE_MODE, LanguageMode.SYSTEM.name)!!)
+        }.getOrDefault(LanguageMode.SYSTEM)
     }
 
     fun setIntervalSec(sec: Int) {
@@ -109,18 +115,18 @@ object Settings {
 
     /** 軌跡色の選択肢（通話料金確認アプリの WIDGET_COLOR_PALETTE に準拠） */
     val trackColorOptions = listOf(
-        TrackColorOption("白", 0xFFFFFFFF.toInt()),
-        TrackColorOption("ティール", 0xFF26C6DA.toInt()),
-        TrackColorOption("青", 0xFF0000FF.toInt()),
-        TrackColorOption("藍", 0xFF3F51B5.toInt()),
-        TrackColorOption("紫", 0xFF7B1FA2.toInt()),
-        TrackColorOption("ピンク", 0xFFE91E63.toInt()),
-        TrackColorOption("赤", 0xFFFF0000.toInt()),
-        TrackColorOption("橙", 0xFFFF5722.toInt()),
-        TrackColorOption("黄", 0xFFFBC02D.toInt()),
-        TrackColorOption("オリーブ", 0xFF6B6E1E.toInt()),
-        TrackColorOption("緑", 0xFF388E3C.toInt()),
-        TrackColorOption("黒", 0xFF000000.toInt())
+        TrackColorOption(R.string.color_white, 0xFFFFFFFF.toInt()),
+        TrackColorOption(R.string.color_teal, 0xFF26C6DA.toInt()),
+        TrackColorOption(R.string.color_blue, 0xFF0000FF.toInt()),
+        TrackColorOption(R.string.color_indigo, 0xFF3F51B5.toInt()),
+        TrackColorOption(R.string.color_purple, 0xFF7B1FA2.toInt()),
+        TrackColorOption(R.string.color_pink, 0xFFE91E63.toInt()),
+        TrackColorOption(R.string.color_red, 0xFFFF0000.toInt()),
+        TrackColorOption(R.string.color_orange, 0xFFFF5722.toInt()),
+        TrackColorOption(R.string.color_yellow, 0xFFFBC02D.toInt()),
+        TrackColorOption(R.string.color_olive, 0xFF6B6E1E.toInt()),
+        TrackColorOption(R.string.color_green, 0xFF388E3C.toInt()),
+        TrackColorOption(R.string.color_black, 0xFF000000.toInt())
     )
 
     private const val DEFAULT_RECORDING_COLOR = 0xFFE91E63.toInt()  // ピンク
@@ -145,7 +151,30 @@ object Settings {
         _permissionNoticeShown.value = shown
         prefs.edit { putBoolean(KEY_PERMISSION_NOTICE, shown) }
     }
+
+    private val _languageMode = MutableStateFlow(LanguageMode.SYSTEM)
+    val languageMode: StateFlow<LanguageMode> = _languageMode.asStateFlow()
+
+    /** 表示言語を切り替える。Activity が作り直され、再起動しなくても反映される */
+    fun setLanguageMode(mode: LanguageMode) {
+        _languageMode.value = mode
+        prefs.edit { putString(KEY_LANGUAGE_MODE, mode.name) }
+        AppLanguage.apply(mode)
+    }
+
+    /**
+     * 実際に適用されている言語に合わせる。Activity を作るたびに呼ぶ。
+     * Android 13 以降はシステム設定の「アプリの言語」からも変えられるため、OS 側を正とする。
+     */
+    fun syncLanguageMode() {
+        val applied = AppLanguage.current()
+        if (_languageMode.value == applied) return
+        _languageMode.value = applied
+        if (::prefs.isInitialized) prefs.edit { putString(KEY_LANGUAGE_MODE, applied.name) }
+    }
+
+    private const val KEY_LANGUAGE_MODE = "language_mode"
 }
 
 /** 軌跡色の1色分（パレット表示用に色名を持つ） */
-data class TrackColorOption(val name: String, val color: Int)
+data class TrackColorOption(@param:StringRes val nameRes: Int, val color: Int)

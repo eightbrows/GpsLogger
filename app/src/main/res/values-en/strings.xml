@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Keys must match values/strings.xml (Japanese, default). -->
+<resources>
+    <string name="app_name">GNSS Logger</string>
+
+    <!-- Common -->
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_back">Back</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_later">Later</string>
+    <string name="undo_warning">This can\'t be undone.</string>
+
+    <!-- Bottom tabs -->
+    <string name="tab_record">Record</string>
+    <string name="tab_history">History</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Record screen -->
+    <string name="status_paused">⏸ Paused</string>
+    <string name="status_recording">● Recording</string>
+    <string name="status_stopped">○ Stopped</string>
+    <string name="record_start">Start</string>
+    <string name="record_pause">Pause</string>
+    <string name="record_resume">Resume</string>
+    <string name="record_stop">Stop</string>
+    <string name="permission_required_title">Permission required</string>
+    <string name="permission_required_message">Location permission is required to start recording. Please grant it in the Settings tab.</string>
+    <string name="permission_notice_title">About permissions</string>
+    <string name="permission_notice_message">Recording your location requires permission. Please grant it in the Settings tab.</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Location recording</string>
+    <string name="notification_title_recording">Recording  %1$s</string>
+    <string name="notification_title_paused">Paused  %1$s</string>
+    <string name="notification_text_recording">%1$s · %2$d pts · Sats %3$d</string>
+    <string name="notification_text_paused">%1$d pts · Positioning stopped</string>
+
+    <!-- Errors while recording -->
+    <string name="error_storage_unavailable">Storage is unavailable</string>
+    <string name="error_location_permission">Location permission is missing</string>
+    <string name="error_meta_save">Failed to save session info (meta.json)</string>
+    <string name="error_create_session_dir">Couldn\'t create the session folder</string>
+    <string name="error_write_failed">Failed to write the recording: %1$s</string>
+    <string name="error_save_failed">Failed to save the recording</string>
+
+    <!-- Track -->
+    <string name="traj_positioning_no_record">Positioning (not recording)</string>
+    <string name="traj_waiting_fix">Waiting for fix…</string>
+    <string name="traj_points_zoom">Points %1$d  ×%2$.1f</string>
+    <string name="traj_clear">Clear track</string>
+    <string name="traj_following">Following</string>
+    <string name="traj_recenter">Back to current position</string>
+
+    <!-- Altitude profile -->
+    <string name="alt_no_data">No data</string>
+    <string name="alt_range_zoom">%1$.1f – %2$.1f m  ×%3$.1f</string>
+    <string name="alt_legend_baro">Baro</string>
+
+    <!-- Numeric page -->
+    <string name="num_session">Session</string>
+    <string name="num_duration">Duration</string>
+    <string name="num_duration_value">%1$s (%2$d pts)</string>
+    <string name="num_latitude">Latitude</string>
+    <string name="num_longitude">Longitude</string>
+    <string name="num_alt_gps">Alt GPS</string>
+    <string name="num_alt_baro">Alt baro</string>
+    <string name="num_accuracy">Accuracy (1σ)</string>
+    <string name="num_speed">Speed</string>
+    <string name="num_bearing">Bearing</string>
+    <string name="num_bearing_value">%1$.1f deg (acc. +/- %2$.1f)</string>
+    <string name="num_satellites">Satellites</string>
+    <string name="num_group1">Group 1</string>
+    <string name="num_group2">Group 2</string>
+
+    <!-- Satellites (numeric page, satellite list, sky plot) -->
+    <string name="sat_used_visible">Used %1$d / In view %2$d</string>
+    <string name="sat_used">Used</string>
+    <string name="sat_visible">In view</string>
+    <string name="satlist_system">Sys</string>
+    <string name="satlist_azimuth">Az</string>
+    <string name="satlist_elevation">El</string>
+    <string name="sky_no_satellites">No satellites</string>
+
+    <!-- History list -->
+    <string name="history_export_failed">Export failed</string>
+    <string name="history_clear_selection">Clear selection</string>
+    <string name="history_select_all">Select all</string>
+    <string name="history_selected_count">%1$d selected</string>
+    <string name="history_import">Import</string>
+    <string name="history_export">Export</string>
+    <string name="history_filter_count">Showing %1$d / %2$d (with all selected tags)</string>
+    <string name="history_exporting">"  Exporting…"</string>
+    <string name="history_empty">No recordings</string>
+    <string name="history_filter_empty">No recordings have all the selected tags</string>
+    <string name="history_recording_badge">"  ● Recording"</string>
+    <string name="history_delete_title">Delete recordings</string>
+    <string name="history_delete_message">Recordings to delete: %1$d</string>
+    <string name="history_delete_item">• %1$s</string>
+    <string name="history_delete_more">and %1$d more</string>
+    <string name="history_import_result">Import result</string>
+    <string name="history_import_done">Imported sessions: %1$d</string>
+    <string name="history_import_skipped">Skipped files (invalid format): %1$d</string>
+    <string name="history_import_error_open">Can\'t open the file</string>
+    <string name="history_import_error_read">Failed to read the file</string>
+    <string name="history_tags">Tags</string>
+    <string name="history_clear_filter">Clear</string>
+    <string name="history_summary">~%1$d pts · %2$d KB</string>
+
+    <!-- Replay screen -->
+    <string name="replay_edit_meta">Edit session info</string>
+    <string name="replay_load_failed">Couldn\'t load the recording</string>
+    <string name="replay_previous">Previous</string>
+    <string name="replay_next">Next</string>
+    <string name="replay_sats_none">Sats: none</string>
+    <string name="replay_sats">Sats: %1$d</string>
+    <string name="replay_delete_title">Delete recording</string>
+
+    <!-- Session info (meta.json) editor -->
+    <string name="meta_title">Session info</string>
+    <string name="meta_missing">meta.json doesn\'t exist yet. It will be created when you save an item.</string>
+    <string name="meta_hint_tap">Tap an item with a pencil to edit it</string>
+    <string name="meta_save_failed">Failed to save: %1$s</string>
+    <string name="meta_hint_comment">Free text</string>
+    <string name="meta_hint_tags">Comma-separated (e.g. travel, favorite)</string>
+    <string name="meta_hint_base_pressure">In hPa. Can\'t be empty</string>
+    <string name="meta_hint_segment_pressure">In hPa. Leave empty to unset (uses the session value)</string>
+    <string name="meta_empty">(empty)</string>
+    <string name="meta_unset">Unset</string>
+    <string name="meta_edit">Edit</string>
+    <string name="meta_saving">Saving…</string>
+    <string name="meta_save">Save</string>
+    <string name="meta_error_not_editable">This item can\'t be edited</string>
+    <string name="meta_error_pressure_required">Base pressure can\'t be empty</string>
+    <string name="meta_error_invalid_pressure">Enter a positive number for pressure (e.g. 1013.25)</string>
+    <string name="meta_error_segment_not_found">Segment %1$d not found</string>
+
+    <!-- Settings -->
+    <string name="settings_interval">Recording interval (s)</string>
+    <string name="settings_interval_locked">Can\'t be changed while recording</string>
+    <string name="settings_interval_sparse">Long intervals may record satellite data sparsely</string>
+    <string name="settings_note_separator">" / "</string>
+    <string name="settings_coord_format">Coordinate format</string>
+    <string name="settings_coord_format_note">Applies to the numeric page and the track grid</string>
+    <string name="settings_coord_decimal">Decimal</string>
+    <string name="settings_coord_dms">DMS</string>
+    <string name="settings_track_color">Track color</string>
+    <string name="settings_track_color_note">Use different colors for preview and recording</string>
+    <string name="settings_wakelock">Use WakeLock</string>
+    <string name="settings_wakelock_note">Prevents missed fixes while the screen is off (uses more battery; the device\'s power saving may limit the effect)</string>
+    <string name="settings_leap_seconds">Leap seconds (GPS − UTC)</string>
+    <string name="settings_leap_seconds_note">Used to compute the Z-count (default 18)</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_note">Switches the app\'s color scheme</string>
+    <string name="settings_follow_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_note">Switches the app\'s display language</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="settings_about">About</string>
+    <string name="settings_storage">Storage</string>
+    <string name="settings_storage_value">App-specific directory</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_license">License</string>
+    <string name="settings_website">Website</string>
+    <string name="settings_color_preview">Preview</string>
+    <string name="settings_color_recording">Recording</string>
+    <string name="settings_color_dialog_title">%1$s color</string>
+    <string name="permission_granted">Granted</string>
+    <string name="permission_denied">Not granted</string>
+
+    <!-- Permissions -->
+    <string name="perm_fine_location">Location (precise)</string>
+    <string name="perm_fine_location_desc">Required for GNSS positioning</string>
+    <string name="perm_background_location">Location (all the time)</string>
+    <string name="perm_background_location_desc">Required to keep recording after the screen is closed</string>
+    <string name="perm_notifications">Notifications</string>
+    <string name="perm_notifications_desc">Shows that recording is in progress in the notification area</string>
+
+    <!-- Track color names -->
+    <string name="color_white">White</string>
+    <string name="color_teal">Teal</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_indigo">Indigo</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_red">Red</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_olive">Olive</string>
+    <string name="color_green">Green</string>
+    <string name="color_black">Black</string>
+</resources>

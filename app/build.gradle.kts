@@ -10,7 +10,7 @@ fun versionCodeFrom(name: String): Int {
     return date * 100 + seq
 }
 
-val appVersionName = "20260919-D02"
+val appVersionName = "20260919-D03"
 android {
     namespace = "io.github.eightbrows.gpslogger"
     compileSdk {
@@ -58,6 +58,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    // アプリ内で表示言語を切り替えるため、App Bundle で言語別にリソースを分割しない
+    // （分割すると、切り替え先の言語のリソースが端末に入っていないことがある）
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -72,6 +80,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
+    // アプリ別の表示言語（AppCompatDelegate.setApplicationLocales）
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
     // Android の org.json は単体テストではスタブなので、JVM 上で動く実装を使う（アプリ本体には入らない）

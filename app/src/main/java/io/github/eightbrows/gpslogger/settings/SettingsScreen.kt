@@ -1,5 +1,8 @@
 package io.github.eightbrows.gpslogger.settings
 
+import androidx.annotation.StringRes
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -71,12 +74,15 @@ fun SettingsScreen() {
             .padding(horizontal = 12.dp)
     ) {
         // --- 記録間隔 ---
-        SectionLabel("記録間隔（秒）", top = 16.dp)
+        SectionLabel(stringResource(R.string.settings_interval), top = 16.dp)
+        val lockedNote = stringResource(R.string.settings_interval_locked)
+        val sparseNote = stringResource(R.string.settings_interval_sparse)
+        val noteSeparator = stringResource(R.string.settings_note_separator)
         val intervalNote = buildString {
-            if (isLogging) append("記録中は変更できません")
+            if (isLogging) append(lockedNote)
             if (intervalSec >= 16) {
-                if (isNotEmpty()) append("／")
-                append("長い間隔では衛星情報の記録が疎になる場合あり")
+                if (isNotEmpty()) append(noteSeparator)
+                append(sparseNote)
             }
         }
         if (intervalNote.isNotEmpty()) {
@@ -91,12 +97,17 @@ fun SettingsScreen() {
         )
 
         // --- 座標表示形式 ---
-        SectionLabel("座標表示形式", top = 14.dp)
-        SubText("数値ページと軌跡のグリッドに反映されます")
+        SectionLabel(stringResource(R.string.settings_coord_format), top = 14.dp)
+        SubText(stringResource(R.string.settings_coord_format_note))
         SegmentedControl(
             options = CoordFormat.entries,
             selected = coordFormat,
-            label = { if (it == CoordFormat.DECIMAL) "度" else "度分秒" },
+            label = {
+                stringResource(
+                    if (it == CoordFormat.DECIMAL) R.string.settings_coord_decimal
+                    else R.string.settings_coord_dms
+                )
+            },
             onSelect = { Settings.setCoordFormat(it) }
         )
         Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
@@ -117,8 +128,8 @@ fun SettingsScreen() {
         }
 
         // --- 軌跡の色 ---
-        SectionLabel("軌跡の色", top = 14.dp)
-        SubText("記録中とプレビュー中で色を分けられます")
+        SectionLabel(stringResource(R.string.settings_track_color), top = 14.dp)
+        SubText(stringResource(R.string.settings_track_color_note))
         TrackColorRow()
 
         Divider12()
@@ -130,9 +141,9 @@ fun SettingsScreen() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f)) {
-                Text("WakeLockを使用", fontSize = 14.sp)
+                Text(stringResource(R.string.settings_wakelock), fontSize = 14.sp)
                 Text(
-                    "画面OFF時の取りこぼしを防止（電池消費が増加、端末の節電機能により効果が制限される場合あり）",
+                    stringResource(R.string.settings_wakelock_note),
                     fontSize = 11.sp,
                     lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.outline
@@ -153,16 +164,16 @@ fun SettingsScreen() {
 
         // --- テーマ ---
         val themeMode by Settings.themeMode.collectAsState()
-        SectionLabel("テーマ", top = 0.dp)
-        SubText("アプリ全体の配色を切り替えます")
+        SectionLabel(stringResource(R.string.settings_theme), top = 0.dp)
+        SubText(stringResource(R.string.settings_theme_note))
         SegmentedControl(
             options = ThemeMode.entries,
             selected = themeMode,
             label = {
                 when (it) {
-                    ThemeMode.SYSTEM -> "システムに従う"
-                    ThemeMode.LIGHT -> "ライト"
-                    ThemeMode.DARK -> "ダーク"
+                    ThemeMode.SYSTEM -> stringResource(R.string.settings_follow_system)
+                    ThemeMode.LIGHT -> stringResource(R.string.settings_theme_light)
+                    ThemeMode.DARK -> stringResource(R.string.settings_theme_dark)
                 }
             },
             onSelect = { Settings.setThemeMode(it) }
@@ -170,18 +181,37 @@ fun SettingsScreen() {
 
         Divider14()
 
+        // --- 言語 ---
+        val languageMode by Settings.languageMode.collectAsState()
+        SectionLabel(stringResource(R.string.settings_language), top = 0.dp)
+        SubText(stringResource(R.string.settings_language_note))
+        SegmentedControl(
+            options = LanguageMode.entries,
+            selected = languageMode,
+            label = {
+                when (it) {
+                    LanguageMode.SYSTEM -> stringResource(R.string.settings_follow_system)
+                    LanguageMode.JAPANESE -> stringResource(R.string.language_japanese)
+                    LanguageMode.ENGLISH -> stringResource(R.string.language_english)
+                }
+            },
+            onSelect = { Settings.setLanguageMode(it) }
+        )
+
+        Divider14()
+
         // --- 権限 ---
-        SectionLabel("権限", top = 0.dp)
+        SectionLabel(stringResource(R.string.settings_permissions), top = 0.dp)
         PermissionSection()
 
         Divider14()
 
         // --- 情報 ---
-        SectionLabel("情報", top = 0.dp)
-        InfoRow("保存先", "アプリ専用ディレクトリ")
-        InfoRow("バージョン", BuildConfig.VERSION_NAME)
-        LinkRow("ライセンス", "Apache 2.0", "https://github.com/eightbrows/GpsLogger/blob/main/LICENSE")
-        LinkRow("公式サイト", "eightbrows.github.io", "https://eightbrows.github.io/")
+        SectionLabel(stringResource(R.string.settings_about), top = 0.dp)
+        InfoRow(stringResource(R.string.settings_storage), stringResource(R.string.settings_storage_value))
+        InfoRow(stringResource(R.string.settings_version), BuildConfig.VERSION_NAME)
+        LinkRow(stringResource(R.string.settings_license), "Apache 2.0", "https://github.com/eightbrows/GpsLogger/blob/main/LICENSE")
+        LinkRow(stringResource(R.string.settings_website), "eightbrows.github.io", "https://eightbrows.github.io/")
 
         Box(Modifier.height(16.dp))
     }
@@ -224,7 +254,7 @@ private fun Divider14() {
 private fun <T> SegmentedControl(
     options: List<T>,
     selected: T,
-    label: (T) -> String,
+    label: @Composable (T) -> String,
     enabled: Boolean = true,
     onSelect: (T) -> Unit
 ) {
@@ -284,9 +314,9 @@ private fun LeapSecondsRow() {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(Modifier.weight(1f)) {
-            Text("うるう秒（GPS − UTC）", fontSize = 14.sp)
+            Text(stringResource(R.string.settings_leap_seconds), fontSize = 14.sp)
             Text(
-                "Z-countの算出に使用（初期値 18）",
+                stringResource(R.string.settings_leap_seconds_note),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -324,9 +354,9 @@ private fun StepButton(label: String, onClick: () -> Unit) {
 
 // ==================== 軌跡の色 ====================
 
-private enum class TrackColorRole(val label: String) {
-    PREVIEW("プレビュー"),
-    RECORDING("記録中")
+private enum class TrackColorRole(@param:StringRes val labelRes: Int) {
+    PREVIEW(R.string.settings_color_preview),
+    RECORDING(R.string.settings_color_recording)
 }
 
 @Composable
@@ -355,7 +385,7 @@ private fun TrackColorRow() {
     val role = editing
     if (role != null) {
         TrackColorPickerDialog(
-            title = "${role.label}の色を選択",
+            title = stringResource(R.string.settings_color_dialog_title, stringResource(role.labelRes)),
             selectedColor = selectedColor(role),
             onSelect = { color ->
                 if (role == TrackColorRole.RECORDING) Settings.setRecordingColor(color)
@@ -379,7 +409,7 @@ private fun TrackColorChip(role: TrackColorRole, color: Int, onClick: () -> Unit
         contentAlignment = Alignment.Center
     ) {
         Text(
-            role.label,
+            stringResource(role.labelRes),
             fontSize = 12.sp,
             color = trackTextColorOn(color)
         )
@@ -413,7 +443,7 @@ private fun TrackColorPickerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("キャンセル") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
     )
 }
 
@@ -441,7 +471,7 @@ private fun TrackColorSwatch(option: TrackColorOption, selected: Boolean, onClic
             }
         }
         Text(
-            option.name,
+            stringResource(option.nameRes),
             fontSize = 10.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = if (selected) MaterialTheme.colorScheme.primary
@@ -503,15 +533,15 @@ private fun PermissionSection() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f)) {
-                Text(perm.label, fontSize = 13.sp)
+                Text(stringResource(perm.labelRes), fontSize = 13.sp)
                 Text(
-                    perm.description,
+                    stringResource(perm.descriptionRes),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
             }
             Text(
-                if (granted) "許可済み" else "未許可",
+                stringResource(if (granted) R.string.permission_granted else R.string.permission_denied),
                 fontSize = 14.sp,
                 color = if (granted) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.error

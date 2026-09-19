@@ -1,5 +1,7 @@
 package io.github.eightbrows.gpslogger.ui
 
+import io.github.eightbrows.gpslogger.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -113,14 +115,14 @@ fun TrajectoryPane(
                     drawCircle(currentColor, 6.dp.toPx(), Offset(size.width / 2f, size.height / 2f))
                 }
                 Text(
-                    "測位中（記録なし）",
+                    stringResource(R.string.traj_positioning_no_record),
                     Modifier.align(Alignment.TopStart).padding(8.dp),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
             } else {
                 Text(
-                    "測位待ち…",
+                    stringResource(R.string.traj_waiting_fix),
                     Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -327,7 +329,7 @@ fun TrajectoryPane(
             }
 
             Text(
-                "点数 ${points.size}  ×%.1f".format(zoom),
+                stringResource(R.string.traj_points_zoom, points.size, zoom),
                 Modifier.align(Alignment.TopCenter).padding(vertical = 4.dp),
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.outline
@@ -353,7 +355,7 @@ fun TrajectoryPane(
                     ) {
                         Icon(
                             Icons.Filled.Delete,
-                            contentDescription = "軌跡をクリア",
+                            contentDescription = stringResource(R.string.traj_clear),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -364,11 +366,11 @@ fun TrajectoryPane(
                         onClick = { },
                         colors = IconButtonDefaults.filledIconButtonColors()
                     ) {
-                        Icon(Icons.Filled.LocationOn, contentDescription = "追従中")
+                        Icon(Icons.Filled.LocationOn, contentDescription = stringResource(R.string.traj_following))
                     }
                 } else {
                     OutlinedIconButton(onClick = { following = true }) {
-                        Icon(Icons.Filled.LocationOn, contentDescription = "現在地へ戻る")
+                        Icon(Icons.Filled.LocationOn, contentDescription = stringResource(R.string.traj_recenter))
                     }
                 }
             }
