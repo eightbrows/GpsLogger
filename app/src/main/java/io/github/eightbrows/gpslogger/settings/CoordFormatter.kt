@@ -16,6 +16,10 @@ object CoordFormatter {
         return "%d°%02d'%05.2f\"%s".format(deg, min, sec, hemisphere)
     }
 
+    /** 度分秒表記のみ（数値ページの併記用） */
+    fun latitudeDms(value: Double): String = toDms(value, "N", "S")
+    fun longitudeDms(value: Double): String = toDms(value, "E", "W")
+
     /** 度と度分秒を1行で併記。設定に応じて主従を入れ替える */
     fun latitudeBoth(value: Double, format: CoordFormat): String = when (format) {
         CoordFormat.DECIMAL -> "%.7f (%s)".format(value, toDms(value, "N", "S"))

@@ -102,58 +102,79 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        // 時刻
+        // --- 時刻 ---
         NumRow("UTC", if (hasTime) formatUtc(snapshot.timeMs) else DASH)
         NumRow("Local", if (hasTime) formatLocal(snapshot.timeMs) else DASH)
         NumRow("WN / TOW", if (gps != null) "${gps.week} / %.1f".format(gps.tow) else "$DASH / $DASH")
 
-        // 記録情報
+        NumDivider()
+
+        // --- 記録 ---
         val startMs = snapshot.sessionStartMs
         val endMs = snapshot.sessionEndMs
-        NumRow("記録開始", if (startMs > 0) formatLocal(startMs) else DASH)
-        NumRow("記録終了", if (endMs > 0) formatLocal(endMs) else DASH)
+        NumRow(
+            "記録",
+            if (startMs > 0) "${formatTimeOnly(startMs)} → ${if (endMs > 0) formatTimeOnly(endMs) else DASH}"
+            else DASH
+        )
         NumRow(
             "記録時間",
-            "${formatDuration(startMs, endMs, snapshot.timeMs)}  (${snapshot.trackPoints.size}点)"
+            "${formatDuration(startMs, endMs, snapshot.timeMs)} (${snapshot.trackPoints.size}点)"
         )
 
-        // 位置
-        NumRow("緯度", if (hasPos) CoordFormatter.latitudeBoth(snapshot.latitude!!, coordFormat) else DASH)
-        NumRow("経度", if (hasPos) CoordFormatter.longitudeBoth(snapshot.longitude!!, coordFormat) else DASH)
-        NumRow("楕円体高", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
-        // 生値と基準気圧（meta.json から解決済み）から都度計算する。ライブ・再生共通
+        NumDivider()
+
+        // --- 位置 ---
         NumRow(
-            "気圧高度",
+            "緯度",
+            if (hasPos) "%.7f / %s".format(
+                snapshot.latitude, CoordFormatter.latitudeDms(snapshot.latitude!!)
+            ) else DASH
+        )
+        NumRow(
+            "経度",
+            if (hasPos) "%.7f / %s".format(
+                snapshot.longitude, CoordFormatter.longitudeDms(snapshot.longitude!!)
+            ) else DASH
+        )
+        NumRow("高度 GPS", if (hasPos) formatAltitude(snapshot.altitude) else DASH)
+        NumRow(
+            "高度 気圧",
             snapshot.pressureHpa?.let {
                 formatAltitude(BarometerReader.altitudeM(it, snapshot.basePressureHpa).toDouble())
             } ?: DASH
         )
         NumRow(
-            "精度",
-            if (hasPos) "H%.1f m / V%.1f m".format(snapshot.accuracy, snapshot.verticalAccuracy) else DASH
+            "精度（1σ）",
+            if (hasPos) "H %.1f m / V %.1f m".format(snapshot.accuracy, snapshot.verticalAccuracy) else DASH
         )
         NumRow("速度", if (hasPos) formatSpeed(snapshot.speed) else DASH)
         NumRow(
             "方位",
-            if (hasPos) "%.1f deg (+/- %.1f)".format(snapshot.bearing, snapshot.bearingAccuracy)
+            if (hasPos) "%.1f deg (精度+/- %.1f)".format(snapshot.bearing, snapshot.bearingAccuracy)
             else DASH
         )
 
-        // 衛星
-        NumRow("衛星数", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
-        ConstellationRow("衛星種別1", snapshot.satellites, GROUP_WEST)
-        ConstellationRow("衛星種別2", snapshot.satellites, GROUP_OTHER)
+        NumDivider()
 
-        // DOP
+        // --- 衛星・DOP ---
+        NumRow("衛星数", "使用 ${snapshot.satsUsed} / 可視 ${snapshot.satsInView}")
+        ConstellationRow("種別1", snapshot.satellites, GROUP_WEST)
+        ConstellationRow("種別2", snapshot.satellites, GROUP_OTHER)
         NumRow(
-            "DOP",
-            if (dop != null)
-                "P%.2f / H%.2f / V%.2f / G%.2f / T%.2f".format(
-                    dop.pdop, dop.hdop, dop.vdop, dop.gdop, dop.tdop
-                )
-            else DASH
+            "DOP1",
+            if (dop != null) "P %.1f / H %.1f / V %.1f".format(dop.pdop, dop.hdop, dop.vdop) else DASH
+        )
+        NumRow(
+            "DOP2",
+            if (dop != null) "G %.1f / T %.1f".format(dop.gdop, dop.tdop) else DASH
         )
     }
+}
+
+@Composable
+private fun NumDivider() {
+    androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 2.dp))
 }
 
 @Composable
@@ -165,10 +186,10 @@ private fun ConstellationRow(
     val present = order.filter { type -> sats.any { it.constellation == type } }
 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(0.8f), fontSize = 13.sp, lineHeight = 14.sp)
+        Text(label, Modifier.weight(0.8f), fontSize = 13.sp, lineHeight = 13.sp)
         Row(Modifier.weight(2.2f), verticalAlignment = Alignment.CenterVertically) {
             if (present.isEmpty()) {
-                Text(DASH, fontSize = 13.sp, lineHeight = 14.sp)
+                Text(DASH, fontSize = 13.sp, lineHeight = 13.sp)
             } else {
                 present.forEach { type ->
                     val used = sats.count { it.constellation == type && it.usedInFix }
@@ -181,7 +202,7 @@ private fun ConstellationRow(
                     Text(
                         " ${rinexCode(type)}$used/$total ",
                         fontSize = 13.sp,
-                        lineHeight = 14.sp
+                        lineHeight = 13.sp
                     )
                 }
             }
@@ -195,9 +216,20 @@ private val utcFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.u
     timeZone = java.util.TimeZone.getTimeZone("UTC")
 }
 private val localFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+private val timeOnlyFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
 
-private fun formatUtc(ms: Long): String = utcFormat.format(java.util.Date(ms))
-private fun formatLocal(ms: Long): String = localFormat.format(java.util.Date(ms))
+private fun formatUtc(ms: Long): String = utcFormat.format(java.util.Date(ms)) + " Z"
+
+private fun formatLocal(ms: Long): String {
+    val offsetMs = java.util.TimeZone.getDefault().getOffset(ms)
+    val totalMinutes = offsetMs / 60000
+    val sign = if (totalMinutes >= 0) "+" else "-"
+    val hours = kotlin.math.abs(totalMinutes) / 60
+    val minutes = kotlin.math.abs(totalMinutes) % 60
+    val offsetStr = "%s%02d:%02d".format(sign, hours, minutes)
+    return localFormat.format(java.util.Date(ms)) + " " + offsetStr
+}
+private fun formatTimeOnly(ms: Long): String = timeOnlyFormat.format(java.util.Date(ms))
 
 /** 42.3 → "42.3 m / 138.8 ft" */
 private fun formatAltitude(meters: Double): String {
@@ -215,8 +247,18 @@ private fun formatSpeed(mps: Float): String {
 @Composable
 private fun NumRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth()) {
-        Text(label, Modifier.weight(0.8f), fontSize = 13.sp, lineHeight = 14.sp)
-        Text(value, Modifier.weight(2.2f), fontSize = 13.sp, lineHeight = 14.sp)
+        Text(
+            label,
+            Modifier.weight(0.8f),
+            fontSize = 13.sp,
+            lineHeight = 13.sp
+        )
+        Text(
+            value,
+            Modifier.weight(2.2f),
+            fontSize = 13.sp,
+            lineHeight = 13.sp
+        )
     }
 }
 
