@@ -53,6 +53,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.eightbrows.gpslogger.BuildConfig
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 
 @Composable
 fun SettingsScreen() {
@@ -70,8 +72,15 @@ fun SettingsScreen() {
     ) {
         // --- 記録間隔 ---
         SectionLabel("記録間隔（秒）", top = 16.dp)
-        if (isLogging) {
-            SubText("記録中は変更できません")
+        val intervalNote = buildString {
+            if (isLogging) append("記録中は変更できません")
+            if (intervalSec >= 16) {
+                if (isNotEmpty()) append("／")
+                append("長い間隔では衛星情報の記録が疎になる場合あり")
+            }
+        }
+        if (intervalNote.isNotEmpty()) {
+            SubText(intervalNote)
         }
         SegmentedControl(
             options = Settings.intervalOptions,
@@ -123,8 +132,9 @@ fun SettingsScreen() {
             Column(Modifier.weight(1f)) {
                 Text("WakeLockを使用", fontSize = 14.sp)
                 Text(
-                    "画面OFF時の取りこぼしを防止（電池消費が増えます）",
+                    "画面OFF時の取りこぼしを防止（電池消費が増加、端末の節電機能により効果が制限される場合あり）",
                     fontSize = 11.sp,
+                    lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
             }
@@ -222,6 +232,7 @@ private fun <T> SegmentedControl(
     Row(
         Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .clip(shape)
             .border(0.5.dp, MaterialTheme.colorScheme.outline, shape)
     ) {
@@ -229,8 +240,8 @@ private fun <T> SegmentedControl(
             if (index > 0) {
                 Box(
                     Modifier
+                        .fillMaxHeight()
                         .width(1.dp)
-                        .height(24.dp)
                         .background(MaterialTheme.colorScheme.outline)
                 )
             }
@@ -238,6 +249,7 @@ private fun <T> SegmentedControl(
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .clickable(enabled = enabled) { onSelect(option) }
                     .background(
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
