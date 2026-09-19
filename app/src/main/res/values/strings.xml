@@ -107,6 +107,13 @@
     <string name="history_tags">Tags</string>
     <string name="history_clear_filter">Clear</string>
     <string name="history_summary">~%1$d pts · %2$d KB</string>
+    <string name="history_more">More</string>
+    <string name="history_export_gpx">Save as GPX</string>
+    <string name="history_export_kmz">Save as KMZ</string>
+    <string name="history_convert_title">%1$s export</string>
+    <string name="history_convert_done">Sessions saved: %1$d (%2$s)</string>
+    <string name="history_convert_failed">Couldn\'t convert (no points or unreadable): %1$d</string>
+    <string name="history_convert_location">Files are saved in each session folder. Use Export (ZIP) to take them off the device.</string>
 
     <!-- Replay screen -->
     <string name="replay_edit_meta">Edit session info</string>
@@ -119,7 +126,13 @@
 
     <!-- Session info (meta.json) editor -->
     <string name="meta_title">Session info</string>
-    <string name="meta_missing">meta.json doesn\'t exist yet. It will be created when you save an item.</string>
+    <string name="meta_missing">This session has no session info (meta.json)</string>
+    <string name="meta_broken">This session\'s session info (meta.json) can\'t be read</string>
+    <string name="meta_create_action">Tap to create it from the recorded track (track.csv). Items not in the track are set to defaults.</string>
+    <string name="meta_recreate_action">Tap to recreate it from the recorded track (track.csv). The current file will be replaced.</string>
+    <string name="meta_creating">Reading the recorded track…</string>
+    <string name="meta_create_failed">Couldn\'t create: %1$s</string>
+    <string name="meta_create_no_track">Couldn\'t create: track.csv not found</string>
     <string name="meta_hint_tap">Tap an item with a pencil to edit it</string>
     <string name="meta_save_failed">Failed to save: %1$s</string>
     <string name="meta_hint_comment">Free text</string>
@@ -158,6 +171,9 @@
     <string name="settings_wakelock_note">Prevents missed fixes while the screen is off (uses more battery; the device\'s power saving may limit the effect)</string>
     <string name="settings_leap_seconds">Leap seconds (GPS − UTC)</string>
     <string name="settings_leap_seconds_note">Used to compute the Z-count (default 18)</string>
+    <string name="settings_geoid_height">Geoid height (m)</string>
+    <string name="settings_geoid_height_note">GPX/KMZ altitudes are exported as ellipsoidal height − this value. 0 = no correction (default 36.0, typical for Japan). Tap the number to enter it</string>
+    <string name="settings_geoid_height_hint">%1$s to %2$s m, in 0.1 m steps (default %3$s)</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_note">Switches the app\'s color scheme</string>
     <string name="settings_follow_system">Follow system</string>

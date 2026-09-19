@@ -31,6 +31,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import java.util.Locale
+import kotlin.math.abs
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -203,6 +208,9 @@ fun SettingsScreen() {
 
         // --- うるう秒 ---
         LeapSecondsRow()
+
+        // --- ジオイド高（GPX / KMZ の標高換算） ---
+        GeoidHeightRow()
 
         Divider14()
 
@@ -482,6 +490,101 @@ private fun LeapSecondsRow() {
             }
         }
     }
+}
+
+/**
+ * ジオイド高: うるう秒と同じ形。+/- は 1 m 刻み、数値をタップすると 0.1 m 単位で直接入力できる
+ */
+@Composable
+private fun GeoidHeightRow() {
+    val geoidHeight by Settings.geoidHeightM.collectAsState()
+    var editing by remember { mutableStateOf(false) }
+
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.settings_geoid_height), fontSize = 14.sp)
+            Text(
+                stringResource(R.string.settings_geoid_height_note),
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StepButton("+") { Settings.setGeoidHeightM(geoidHeight + 1.0) }
+            Text(
+                formatGeoid(geoidHeight),
+                Modifier
+                    .width(48.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { editing = true }
+                    .padding(vertical = 4.dp),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+            StepButton("−") { Settings.setGeoidHeightM(geoidHeight - 1.0) }
+        }
+    }
+
+    if (editing) {
+        GeoidHeightDialog(
+            initial = geoidHeight,
+            onDismiss = { editing = false },
+            onSave = {
+                Settings.setGeoidHeightM(it)
+                editing = false
+            }
+        )
+    }
+}
+
+private fun formatGeoid(m: Double): String = String.format(Locale.ROOT, "%.1f", m)
+
+/** ジオイド高の直接入力。範囲外・数値でない入力は保存させない */
+@Composable
+private fun GeoidHeightDialog(initial: Double, onDismiss: () -> Unit, onSave: (Double) -> Unit) {
+    var text by remember { mutableStateOf(formatGeoid(initial)) }
+    // 小数点にカンマを使う言語のキーボードでも受け付ける
+    val value = text.trim().replace(',', '.').toDoubleOrNull()
+        ?.takeIf { it.isFinite() && abs(it) <= Settings.GEOID_LIMIT_M }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_geoid_height), fontSize = 16.sp) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = value == null,
+                suffix = { Text("m") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                supportingText = {
+                    Text(
+                        stringResource(
+                            R.string.settings_geoid_height_hint,
+                            formatGeoid(-Settings.GEOID_LIMIT_M),
+                            formatGeoid(Settings.GEOID_LIMIT_M),
+                            formatGeoid(Settings.DEFAULT_GEOID_HEIGHT_M)
+                        )
+                    )
+                }
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = value != null, onClick = { value?.let(onSave) }) {
+                Text(stringResource(R.string.meta_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        }
+    )
 }
 
 @Composable

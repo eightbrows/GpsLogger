@@ -111,6 +111,13 @@
     <string name="history_tags">タグ</string>
     <string name="history_clear_filter">解除</string>
     <string name="history_summary">約 %1$d 点 ・ %2$d KB</string>
+    <string name="history_more">その他の操作</string>
+    <string name="history_export_gpx">GPX を書き出す</string>
+    <string name="history_export_kmz">KMZ を書き出す</string>
+    <string name="history_convert_title">%1$s の書き出し</string>
+    <string name="history_convert_done">%1$d 件のセッションに %2$s を保存しました</string>
+    <string name="history_convert_failed">%1$d 件は書き出せませんでした（測位点なし・読み込み失敗）</string>
+    <string name="history_convert_location">ファイルは各セッションのフォルダに保存されます。端末の外へ出すには「エクスポート」（ZIP）を使ってください。</string>
 
     <!-- 再生画面 -->
     <string name="replay_edit_meta">記録情報を編集</string>
@@ -123,7 +130,13 @@
 
     <!-- 記録情報（meta.json）の編集 -->
     <string name="meta_title">記録情報</string>
-    <string name="meta_missing">meta.json がありません。項目を保存すると新しく作成されます。</string>
+    <string name="meta_missing">このセッションには記録情報（meta.json）がありません</string>
+    <string name="meta_broken">このセッションの記録情報（meta.json）を読み込めません</string>
+    <string name="meta_create_action">タップすると、記録した軌跡（track.csv）から作成します。軌跡から分からない項目は既定値になります。</string>
+    <string name="meta_recreate_action">タップすると、記録した軌跡（track.csv）から作り直します。今のファイルは置き換えられます。</string>
+    <string name="meta_creating">記録した軌跡を読み込んでいます…</string>
+    <string name="meta_create_failed">作成できませんでした: %1$s</string>
+    <string name="meta_create_no_track">作成できませんでした: track.csv がありません</string>
     <string name="meta_hint_tap">鉛筆の付いた項目をタップすると編集できます</string>
     <string name="meta_save_failed">保存に失敗しました: %1$s</string>
     <string name="meta_hint_comment">自由に入力できます</string>
@@ -162,6 +175,9 @@
     <string name="settings_wakelock_note">画面OFF時の取りこぼしを防止（電池消費が増加、端末の節電機能により効果が制限される場合あり）</string>
     <string name="settings_leap_seconds">うるう秒（GPS − UTC）</string>
     <string name="settings_leap_seconds_note">Z-countの算出に使用（初期値 18）</string>
+    <string name="settings_geoid_height">ジオイド高（標高換算, m）</string>
+    <string name="settings_geoid_height_note">GPX・KMZの高度を「楕円体高 − この値」で出力。0で補正なし（初期値 36.0、日本付近の目安）。数値をタップすると直接入力</string>
+    <string name="settings_geoid_height_hint">%1$s〜%2$s m、0.1 m 単位（初期値 %3$s）</string>
     <string name="settings_theme">テーマ</string>
     <string name="settings_theme_note">アプリ全体の配色を切り替えます</string>
     <string name="settings_follow_system">システムに従う</string>

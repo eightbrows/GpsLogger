@@ -125,49 +125,96 @@ object SessionReader {
         return Geo.pathLengthM(track.map { it.latitude to it.longitude }) { track[it].gapBefore }
     }
 
-    private fun readTrack(file: File): Pair<List<TrackRecord>, Int> {
+    /** track.csv の測位点だけを読む（衛星は読まない）。track.csv が無ければ null */
+    fun readTrackRecords(sessionDir: File): List<TrackRecord>? {
+        val file = File(sessionDir, "track.csv")
+        if (!file.exists()) return null
+        return readTrack(file).first
+    }
+
+    private fun readTrack(file: File): Pair<List<TrackRecord>, Int> =
+        file.bufferedReader().useLines { parseTrack(it) }
+
+    /**
+     * track.csv の行（1 行目はヘッダー）を読む。戻り値は（読めた点, 読み飛ばした行数）。
+     *
+     * 列は番号ではなくヘッダーの列名で引くので、旧形式も読める。
+     *  - v1（19 列）: …, tdop, is_mock
+     *  - v2（22 列）: + gap_before, interval_sec, pressure_hpa
+     * 無い列は既定値（gap_before=false, interval_sec=0, pressure_hpa=null など）。
+     * 必須は epoch_ms・latitude・longitude で、これが読めない行は読み飛ばして数える。空行は数えない。
+     */
+    fun parseTrack(lines: Sequence<String>): Pair<List<TrackRecord>, Int> {
         val result = ArrayList<TrackRecord>()
         var skipped = 0
-        file.bufferedReader().useLines { lines ->
-            lines.drop(1).forEach { line ->
-                val c = line.split(',')
-                if (c.size < TRACK_COLUMNS) {
-                    if (line.isNotBlank()) skipped++
-                    return@forEach
-                }
-                runCatching {
-                    result.add(
-                        TrackRecord(
-                            epochMs = c[1].toLong(),
-                            elapsedRealtimeNs = c[2].toLong(),
-                            latitude = c[4].toDouble(),
-                            longitude = c[5].toDouble(),
-                            altitude = c[6].toDoubleOrNull() ?: 0.0,
-                            accuracy = c[7].toFloatOrNull() ?: 0f,
-                            verticalAccuracy = c[8].toFloatOrNull() ?: 0f,
-                            speed = c[9].toFloatOrNull() ?: 0f,
-                            bearing = c[11].toFloatOrNull() ?: 0f,
-                            bearingAccuracy = c[12].toFloatOrNull() ?: 0f,
-                            dop = parseDop(c),
-                            gapBefore = c[19].trim().toBoolean(),
-                            intervalSec = c[20].trim().toIntOrNull() ?: 0,
-                            pressureHpa = c[21].trim().toFloatOrNull()
-                        )
-                    )
-                }.onFailure { skipped++ }
+        val iter = lines.iterator()
+        if (!iter.hasNext()) return result to 0
+        val cols = TrackColumns.fromHeader(iter.next()) ?: TrackColumns.COMMON
+
+        for (line in iter) {
+            if (line.isBlank()) continue
+            val c = line.split(',')
+            fun s(name: String): String? = cols[name]?.let { c.getOrNull(it) }?.trim()
+
+            val record = try {
+                TrackRecord(
+                    epochMs = s("epoch_ms")!!.toLong(),
+                    elapsedRealtimeNs = s("elapsed_realtime_ns")?.toLongOrNull() ?: 0L,
+                    latitude = s("latitude")!!.toDouble(),
+                    longitude = s("longitude")!!.toDouble(),
+                    altitude = s("altitude_ellipsoid_m")?.toDoubleOrNull() ?: 0.0,
+                    accuracy = s("horizontal_acc_m")?.toFloatOrNull() ?: 0f,
+                    verticalAccuracy = s("vertical_acc_m")?.toFloatOrNull() ?: 0f,
+                    speed = s("speed_mps")?.toFloatOrNull() ?: 0f,
+                    bearing = s("bearing_deg")?.toFloatOrNull() ?: 0f,
+                    bearingAccuracy = s("bearing_acc_deg")?.toFloatOrNull() ?: 0f,
+                    dop = parseDop(::s),
+                    gapBefore = s("gap_before")?.toBoolean() ?: false,
+                    intervalSec = s("interval_sec")?.toIntOrNull() ?: 0,
+                    pressureHpa = s("pressure_hpa")?.toFloatOrNull()
+                )
+            } catch (e: Exception) {
+                null
             }
+            if (record == null) skipped++ else result += record
         }
         return result to skipped
     }
 
-    /** gdop,pdop,hdop,vdop,tdop は 13〜17列目。空欄なら null。 */
-    private fun parseDop(c: List<String>): Dop? {
-        val g = c.getOrNull(13)?.toDoubleOrNull() ?: return null
-        val p = c.getOrNull(14)?.toDoubleOrNull() ?: return null
-        val h = c.getOrNull(15)?.toDoubleOrNull() ?: return null
-        val v = c.getOrNull(16)?.toDoubleOrNull() ?: return null
-        val t = c.getOrNull(17)?.toDoubleOrNull() ?: return null
+    /** gdop,pdop,hdop,vdop,tdop。どれか欠けていれば null */
+    private fun parseDop(get: (String) -> String?): Dop? {
+        val g = get("gdop")?.toDoubleOrNull() ?: return null
+        val p = get("pdop")?.toDoubleOrNull() ?: return null
+        val h = get("hdop")?.toDoubleOrNull() ?: return null
+        val v = get("vdop")?.toDoubleOrNull() ?: return null
+        val t = get("tdop")?.toDoubleOrNull() ?: return null
         return Dop(g, p, h, v, t)
+    }
+
+    /** track.csv の列名 → 列番号 */
+    private class TrackColumns(private val index: Map<String, Int>) {
+        operator fun get(name: String): Int? = index[name]
+
+        companion object {
+            private val REQUIRED = listOf("epoch_ms", "latitude", "longitude")
+
+            /** 全形式で共通の先頭 19 列の並び。ヘッダーが読めないときに使う */
+            val COMMON = of(
+                "utc_iso8601", "epoch_ms", "elapsed_realtime_ns", "provider", "latitude", "longitude",
+                "altitude_ellipsoid_m", "horizontal_acc_m", "vertical_acc_m", "speed_mps", "speed_acc_mps",
+                "bearing_deg", "bearing_acc_deg", "gdop", "pdop", "hdop", "vdop", "tdop", "is_mock"
+            )
+
+            private fun of(vararg names: String) =
+                TrackColumns(names.withIndex().associate { (i, n) -> n to i })
+
+            /** ヘッダー行から作る。必須の列が無ければ null */
+            fun fromHeader(header: String): TrackColumns? {
+                val names = header.removePrefix("\uFEFF").split(',').map { it.trim() }
+                val map = names.withIndex().associate { (i, n) -> n to i }
+                return if (REQUIRED.all { it in map }) TrackColumns(map) else null
+            }
+        }
     }
 
     private fun readSats(file: File): List<SatEpoch> {
@@ -231,9 +278,6 @@ object SessionReader {
         "IRNSS" -> CONSTELLATION_IRNSS
         else -> android.location.GnssStatus.CONSTELLATION_UNKNOWN
     }
-
-    /** track.csv v2 の列数。これ未満の行は読み飛ばす（v1データは読めない） */
-    private const val TRACK_COLUMNS = 22
 
     private const val TAG = "SessionReader"
 }

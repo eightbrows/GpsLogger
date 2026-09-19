@@ -1,5 +1,9 @@
 package io.github.eightbrows.gpslogger.session
 
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.MoreVert
+import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.annotation.StringRes
@@ -117,6 +121,9 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     var exporting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var exportError by remember { mutableStateOf<String?>(null) }
+    // GPX / KMZ の書き出し
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var trackExportResult by remember { mutableStateOf<ExportSummary?>(null) }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -168,6 +175,26 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                     exportError = resources.getString(R.string.history_export_failed)
                 }
             }
+        }
+    }
+
+    /**
+     * 選んだセッション（見えているもの・記録中を除く）の track.csv を GPX / KMZ にし、
+     * それぞれのセッションフォルダに保存する。
+     */
+    fun exportTracks(format: TrackFormat) {
+        val targets = visibleSessions.filter { it.name in selected && it.name != currentSession?.name }
+        if (targets.isEmpty()) return
+        exporting = true
+        // 高度は設定のジオイド高で標高に換算する
+        val geoidHeightM = Settings.geoidHeightM.value
+        scope.launch {
+            val summary = withContext(Dispatchers.IO) {
+                TrackExport.exportSessions(targets, format, geoidHeightM)
+            }
+            exporting = false
+            trackExportResult = summary
+            if (summary.succeeded > 0) exitSelectMode()
         }
     }
 
@@ -257,6 +284,31 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                         tint = if (selected.isNotEmpty()) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     )
+                }
+                // GPX / KMZ はメニューにまとめ、ツールバーのボタンは1つだけ増やす
+                Box {
+                    IconButton(
+                        onClick = { showMoreMenu = true },
+                        enabled = selected.isNotEmpty() && !exporting
+                    ) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.history_more))
+                    }
+                    DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.history_export_gpx)) },
+                            onClick = {
+                                showMoreMenu = false
+                                exportTracks(TrackFormat.GPX)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.history_export_kmz)) },
+                            onClick = {
+                                showMoreMenu = false
+                                exportTracks(TrackFormat.KMZ)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -450,6 +502,38 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         )
     }
 
+    trackExportResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { trackExportResult = null },
+            title = { Text(stringResource(R.string.history_convert_title, result.format.label)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.history_convert_done, result.succeeded, result.format.fileName),
+                        fontSize = 14.sp
+                    )
+                    if (result.failed > 0) {
+                        Text(
+                            stringResource(R.string.history_convert_failed, result.failed),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.history_convert_location),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { trackExportResult = null }) { Text("OK") }
+            }
+        )
+    }
+
     exportError?.let { message ->
         AlertDialog(
             onDismissRequest = { exportError = null },
@@ -536,7 +620,8 @@ private data class ImportResult(
 )
 
 /** エントリ名の許可パターン（これ以外は全て拒否） */
-private val ENTRY_PATTERN = Regex("^(session_\\d{8}_\\d{6})/(track\\.csv|sats\\.csv|meta\\.json)$")
+private val ENTRY_PATTERN =
+    Regex("^(session_\\d{8}_\\d{6})/(track\\.csv|sats\\.csv|meta\\.json|track\\.gpx|track\\.kmz)$")
 
 private fun importZip(
     context: android.content.Context,

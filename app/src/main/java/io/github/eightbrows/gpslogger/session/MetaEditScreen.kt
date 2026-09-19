@@ -52,6 +52,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileNotFoundException
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.ui.draw.clip
 
 /**
  * meta.json の編集画面。階層を「パス → 値」の平坦な一覧で見せ、
@@ -62,15 +66,37 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val resources = LocalResources.current
 
-    var meta by remember { mutableStateOf<SessionMeta?>(null) }
-    var fileExists by remember { mutableStateOf(true) }
+    var state by remember { mutableStateOf<MetaState>(MetaState.Loading) }
     var editingPath by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(sessionDir) {
-        val loaded = withContext(Dispatchers.IO) { SessionReader.readMeta(sessionDir) }
-        fileExists = loaded != null
-        // 無い・壊れている場合は既定値から始め、保存時に新しく作る
-        meta = loaded ?: SessionMeta()
+        state = withContext(Dispatchers.IO) {
+            val loaded = SessionReader.readMeta(sessionDir)
+            when {
+                loaded != null -> MetaState.Loaded(loaded)
+                else -> MetaState.Missing(broken = File(sessionDir, SessionMeta.FILE_NAME).exists())
+            }
+        }
+    }
+
+    /** track.csv を読み直して meta.json を作り、できたら編集できる一覧に切り替える */
+    fun createFromTrack() {
+        val missing = state as? MetaState.Missing ?: return
+        state = MetaState.Creating
+        scope.launch {
+            state = try {
+                MetaState.Loaded(withContext(Dispatchers.IO) { MetaBackfill.create(sessionDir) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: FileNotFoundException) {
+                missing.copy(error = resources.getString(R.string.meta_create_no_track))
+            } catch (e: Exception) {
+                missing.copy(
+                    error = resources.getString(R.string.meta_create_failed, e.message ?: e.javaClass.simpleName)
+                )
+            }
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -94,25 +120,37 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
         }
         HorizontalDivider()
 
-        val current = meta
-        if (current == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        val current = when (val s = state) {
+            MetaState.Loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                return@Column
             }
-            return@Column
+            MetaState.Creating -> {
+                Column(
+                    Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        stringResource(R.string.meta_creating),
+                        Modifier.padding(top = 12.dp),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                return@Column
+            }
+            // meta.json が無いうちは編集させず、作成の案内だけを出す
+            is MetaState.Missing -> {
+                MissingMetaBanner(s, onCreate = ::createFromTrack)
+                return@Column
+            }
+            is MetaState.Loaded -> s.meta
         }
 
-        if (!fileExists) {
-            Text(
-                stringResource(R.string.meta_missing),
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-        }
         Text(
             stringResource(R.string.meta_hint_tap),
             Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -127,8 +165,9 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
         }
     }
 
+    // 編集は meta.json ができているとき（Loaded）だけ
     val path = editingPath
-    val base = meta
+    val base = (state as? MetaState.Loaded)?.meta
     if (path != null && base != null) {
         val numeric = path != "comment" && path != "tags"
         MetaEditDialog(
@@ -148,8 +187,7 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
                             // 履歴一覧のタグ表示に反映させる
                             SessionTagCache.invalidate(sessionDir)
                         }
-                        meta = result.meta
-                        fileExists = true
+                        state = MetaState.Loaded(result.meta)
                         editingPath = null
                         null
                     } catch (e: CancellationException) {
@@ -160,6 +198,70 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
                 }
             }
         )
+    }
+}
+
+/** 編集画面の状態 */
+private sealed interface MetaState {
+    /** meta.json を読んでいる */
+    data object Loading : MetaState
+
+    /**
+     * meta.json が無い（broken = true ならあるが読めない）。
+     * error は直前の作成に失敗したときのメッセージ
+     */
+    data class Missing(val broken: Boolean, val error: String? = null) : MetaState
+
+    /** track.csv から meta.json を作っている */
+    data object Creating : MetaState
+
+    /** meta.json がある。この状態のときだけ編集できる */
+    data class Loaded(val meta: SessionMeta) : MetaState
+}
+
+/** meta.json が無いときの案内。タップで track.csv から作成する */
+@Composable
+private fun MissingMetaBanner(state: MetaState.Missing, onCreate: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(scheme.secondaryContainer)
+            .clickable(onClick = onCreate)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            Icons.Filled.Info,
+            contentDescription = null,
+            tint = scheme.onSecondaryContainer,
+            modifier = Modifier.size(20.dp)
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(if (state.broken) R.string.meta_broken else R.string.meta_missing),
+                fontSize = 14.sp,
+                color = scheme.onSecondaryContainer
+            )
+            Text(
+                stringResource(if (state.broken) R.string.meta_recreate_action else R.string.meta_create_action),
+                Modifier.padding(top = 4.dp),
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = scheme.onSecondaryContainer.copy(alpha = 0.8f)
+            )
+            state.error?.let {
+                Text(
+                    it,
+                    Modifier.padding(top = 6.dp),
+                    fontSize = 12.sp,
+                    color = scheme.error
+                )
+            }
+        }
     }
 }
 

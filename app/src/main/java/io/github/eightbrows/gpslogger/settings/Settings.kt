@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.content.edit
+import kotlin.math.roundToInt
 
 /** 座標の表示形式 */
 enum class CoordFormat { DECIMAL, DMS }
@@ -68,6 +69,7 @@ object Settings {
         )
         _splitRatio.value = prefs.getFloat(KEY_SPLIT_RATIO, 0.5f)
         _leapSeconds.value = prefs.getInt(KEY_LEAP_SECONDS, 18)
+        _geoidHeightM.value = prefs.getInt(KEY_GEOID_HEIGHT_DM, DEFAULT_GEOID_HEIGHT_DM) / 10.0
 
         _recordingColor.value = prefs.getInt(KEY_RECORDING_COLOR, DEFAULT_RECORDING_COLOR)
         _previewColor.value = prefs.getInt(KEY_PREVIEW_COLOR, DEFAULT_PREVIEW_COLOR)
@@ -188,6 +190,31 @@ object Settings {
 
     private val _leapSeconds = MutableStateFlow(18)
     val leapSeconds: StateFlow<Int> = _leapSeconds.asStateFlow()
+
+    // ---- ジオイド高（GPX / KMZ の高度を「楕円体高 − ジオイド高」で標高に換算する） ----
+
+    private val _geoidHeightM = MutableStateFlow(DEFAULT_GEOID_HEIGHT_M)
+
+    /** ジオイド高（m、0.1 m 単位）。0 なら補正なし（楕円体高をそのまま出す） */
+    val geoidHeightM: StateFlow<Double> = _geoidHeightM.asStateFlow()
+
+    /**
+     * ジオイド高を設定する。0.1 m 単位に丸め、設定できる範囲に収める。
+     * 小数の丸め誤差を避けるため、保存は 0.1 m 単位の整数で行う。
+     */
+    fun setGeoidHeightM(m: Double) {
+        val dm = (m * 10).roundToInt().coerceIn(-GEOID_LIMIT_DM, GEOID_LIMIT_DM)
+        _geoidHeightM.value = dm / 10.0
+        prefs.edit { putInt(KEY_GEOID_HEIGHT_DM, dm) }
+    }
+
+    /** 日本付近の平均的なジオイド高の目安 */
+    const val DEFAULT_GEOID_HEIGHT_M = 36.0
+    private const val DEFAULT_GEOID_HEIGHT_DM = 360
+    /** 設定できる範囲（±120 m。地球上のジオイド高はおよそ −107〜+86 m） */
+    const val GEOID_LIMIT_M = 120.0
+    private const val GEOID_LIMIT_DM = 1200
+    private const val KEY_GEOID_HEIGHT_DM = "geoid_height_dm"
 
     fun setRecordingColor(color: Int) {
         _recordingColor.value = color
