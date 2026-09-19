@@ -10,7 +10,7 @@ fun versionCodeFrom(name: String): Int {
     return date * 100 + seq
 }
 
-val appVersionName = "20260919-D10"
+val appVersionName = "20260919-R11"
 android {
     namespace = "io.github.eightbrows.gpslogger"
     compileSdk {
