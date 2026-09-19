@@ -47,6 +47,8 @@ import androidx.compose.runtime.setValue
 import io.github.eightbrows.gpslogger.session.SessionListScreen
 import io.github.eightbrows.gpslogger.state.ViewSnapshot
 import io.github.eightbrows.gpslogger.session.ReplayScreen
+import io.github.eightbrows.gpslogger.session.ReplaySessionState
+import androidx.compose.runtime.key
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.unit.sp
@@ -305,7 +307,9 @@ private enum class Tab { RECORD, REPLAY, SETTINGS }
 fun AppRoot() {
     // 言語の切り替えで Activity が作り直されても、開いていたタブを保つ
     var tab by rememberSaveable { mutableStateOf(Tab.RECORD) }
-    var selectedSession by remember { mutableStateOf<java.io.File?>(null) }
+    // 再生中のセッションと再生状態。タブを移っても破棄しないよう、画面の外（ここ）に持つ。
+    // null なら履歴タブは一覧を出す
+    var replay by remember { mutableStateOf<ReplaySessionState?>(null) }
 
     val context = LocalContext.current
     val noticeShown by Settings.permissionNoticeShown.collectAsState()
@@ -318,13 +322,13 @@ fun AppRoot() {
         }
     }
 
-    // 再生画面を開いているときは一覧へ戻す
-    BackHandler(enabled = tab == Tab.REPLAY && selectedSession != null) {
-        selectedSession = null
+    // 再生画面を開いているときは一覧へ戻す（再生状態は捨てる）
+    BackHandler(enabled = tab == Tab.REPLAY && replay != null) {
+        replay = null
     }
 
-    // 記録タブ以外にいるときは記録タブへ戻す
-    BackHandler(enabled = tab != Tab.RECORD && selectedSession == null) {
+    // 記録タブ以外にいるときは記録タブへ戻す（再生状態は保つ）
+    BackHandler(enabled = tab != Tab.RECORD && !(tab == Tab.REPLAY && replay != null)) {
         tab = Tab.RECORD
     }
 
@@ -333,14 +337,18 @@ fun AppRoot() {
             when (tab) {
                 Tab.RECORD -> RecordControlScreen()
                 Tab.REPLAY -> {
-                    val session = selectedSession
-                    if (session == null) {
-                        SessionListScreen(onSelect = { selectedSession = it })
+                    val current = replay
+                    if (current == null) {
+                        // 選び直したセッションは新しい状態（先頭・等倍・1 ページ目）から始める
+                        SessionListScreen(onSelect = { replay = ReplaySessionState(it) })
                     } else {
-                        ReplayScreen(
-                            sessionDir = session,
-                            onBack = { selectedSession = null }
-                        )
+                        // key: 別のセッションに切り替わったら画面内の一時的な状態も作り直す
+                        key(current) {
+                            ReplayScreen(
+                                state = current,
+                                onBack = { replay = null }
+                            )
+                        }
                     }
                 }
                 Tab.SETTINGS -> SettingsScreen()
@@ -370,8 +378,10 @@ fun AppRoot() {
                         .weight(1f)
                         .fillMaxHeight()
                         .clickable {
+                            // 履歴タブにいるときに履歴タブを押し直したら一覧へ戻る（これまでと同じ）。
+                            // 他のタブから履歴タブへ移ったときは、再生していた画面をそのまま出す
+                            if (t == Tab.REPLAY && tab == Tab.REPLAY) replay = null
                             tab = t
-                            if (t == Tab.REPLAY) selectedSession = null
                         },
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically

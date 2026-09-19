@@ -18,6 +18,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import io.github.eightbrows.gpslogger.ui.TrajectoryViewport
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -60,37 +62,61 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
+/**
+ * 再生中のセッションと、その再生状態（シーク位置・軌跡の表示範囲・下ペインのページ・読み込んだ記録）。
+ * 画面の外（AppRoot）に持たせ、記録タブ・設定タブへ移って戻っても同じ状態で再開できるようにする。
+ * 別のセッションを開くときは新しく作る（シークは先頭・等倍・1 ページ目から）。
+ */
+@Stable
+class ReplaySessionState(val sessionDir: File) {
+    /** シーク位置 0.0〜1.0 */
+    var position by mutableFloatStateOf(0f)
+
+    /** 下ペインのページ 0〜3（数値・衛星リスト・上空図・高度） */
+    var page by mutableIntStateOf(0)
+
+    /** 軌跡ペインのズーム倍率・パン位置 */
+    val viewport = TrajectoryViewport()
+
+    /** 読み込み済みの記録（戻ってきたときに読み直さない）。loaded が false の間は未読み込み */
+    var data by mutableStateOf<SessionData?>(null)
+    var loaded by mutableStateOf(false)
+
+    /** 表示用の測位点（基準気圧を解決済み）。data.track と同じ並び・同じ件数 */
+    var trackPoints by mutableStateOf<List<TrackPoint>>(emptyList())
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
-    var data by remember { mutableStateOf<SessionData?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var position by remember { mutableFloatStateOf(0f) }  // 0.0〜1.0
+fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
+    val sessionDir = state.sessionDir
+    val data = state.data
+    val loading = !state.loaded
+    var position by state::position
+    val trackPoints = state.trackPoints
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showMetaEditor by remember { mutableStateOf(false) }
-    // 表示用の測位点（基準気圧を解決済み）。data.track と同じ並び・同じ件数
-    var trackPoints by remember { mutableStateOf<List<TrackPoint>>(emptyList()) }
     // 編集画面から戻るたびに増やし、基準気圧を解決し直す
     var metaRevision by remember { mutableIntStateOf(0) }
     val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
     val isRecordingThis = currentSession?.name == sessionDir.name
 
-    // 読み込みはIOスレッドで
-    LaunchedEffect(sessionDir) {
-        loading = true
+    // 読み込みはIOスレッドで。読み込み済みなら読み直さない（他のタブから戻ったとき）。
+    // ただし記録中のセッションは点が増えていくので、開くたびに読み直す（シーク位置などは保つ）
+    LaunchedEffect(state) {
+        if (state.loaded && !isRecordingThis) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) { SessionReader.read(sessionDir) }
         // 表示用の点も読み込み時にまとめて作る（再生位置を動かすたびに区間を探さない）
-        trackPoints = loaded?.let { buildTrackPoints(sessionDir, it.track) } ?: emptyList()
-        data = loaded
-        position = 0f
-        loading = false
+        state.trackPoints = loaded?.let { buildTrackPoints(sessionDir, it.track) } ?: emptyList()
+        state.data = loaded
+        state.loaded = true
     }
 
     // meta.json を編集したら基準気圧だけ解決し直す（記録本体は読み直さない・再生位置も保つ）
     LaunchedEffect(metaRevision) {
         if (metaRevision == 0) return@LaunchedEffect
         val track = data?.track ?: return@LaunchedEffect
-        trackPoints = buildTrackPoints(sessionDir, track)
+        state.trackPoints = buildTrackPoints(sessionDir, track)
     }
 
     // 記録情報（meta.json）の編集画面。戻ると再生画面へ（読み込み済みの記録と再生位置は保持）
@@ -195,11 +221,16 @@ fun ReplayScreen(sessionDir: File, onBack: () -> Unit) {
                                         position = if (track.size > 1) {
                                             index.toFloat() / (track.size - 1)
                                         } else 0f
-                                    }
+                                    },
+                                    viewport = state.viewport
                                 )
                             },
                             bottom = {
-                                BottomPager(snapshot) { index ->
+                                BottomPager(
+                                    snapshot,
+                                    initialPage = state.page,
+                                    onPageChanged = { state.page = it }
+                                ) { index ->
                                     position = if (track.size > 1) {
                                         index.toFloat() / (track.size - 1)
                                     } else 0f

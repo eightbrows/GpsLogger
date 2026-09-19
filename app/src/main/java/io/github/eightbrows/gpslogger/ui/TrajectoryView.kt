@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,12 +66,26 @@ private class TrajViewState {
     var maxLat = 0.0
 }
 
+/**
+ * 軌跡ペインの表示範囲（ズーム倍率・平行移動量・追従）。
+ * 画面の外に持たせれば、画面を離れて戻っても同じ表示範囲から再開できる。
+ */
+@Stable
+class TrajectoryViewport {
+    var zoom by mutableFloatStateOf(1f)
+    // 平行移動量（追従OFF時の唯一の基準）
+    var tx by mutableFloatStateOf(0f)
+    var ty by mutableFloatStateOf(0f)
+    var following by mutableStateOf(true)
+}
+
 @Composable
 fun TrajectoryPane(
     snapshot: ViewSnapshot,
     modifier: Modifier = Modifier,
     onClearTrack: (() -> Unit)? = null,
-    onSelectIndex: ((Int) -> Unit)? = null
+    onSelectIndex: ((Int) -> Unit)? = null,
+    viewport: TrajectoryViewport = remember { TrajectoryViewport() }
 ) {
     val points = snapshot.trackPoints
 
@@ -87,11 +102,10 @@ fun TrajectoryPane(
 
     val coordFormat by Settings.coordFormat.collectAsState()
 
-    var zoom by remember { mutableFloatStateOf(1f) }
-    // 平行移動量（追従OFF時の唯一の基準）
-    var tx by remember { mutableFloatStateOf(0f) }
-    var ty by remember { mutableFloatStateOf(0f) }
-    var following by remember { mutableStateOf(true) }
+    var zoom by viewport::zoom
+    var tx by viewport::tx
+    var ty by viewport::ty
+    var following by viewport::following
     val view = remember { TrajViewState() }
 
     // 画面中心をアンカーにしたズーム（ボタン用）

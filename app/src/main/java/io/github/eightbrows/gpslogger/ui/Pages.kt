@@ -31,6 +31,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -49,17 +52,30 @@ import androidx.compose.ui.graphics.Color
 import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 import io.github.eightbrows.gpslogger.log.LogEvent
 
+/**
+ * 下ペインのページ（数値・衛星リスト・上空図・高度）。
+ * initialPage（0〜3）から始め、ページが変わるたびに onPageChanged へ 0〜3 で知らせる
+ * （画面を離れて戻ったときに同じページから再開するため）。
+ */
 @Composable
 fun BottomPager(
     snapshot: ViewSnapshot,
+    initialPage: Int = 0,
+    onPageChanged: ((Int) -> Unit)? = null,
     onSelectIndex: ((Int) -> Unit)? = null
 ) {
     val pageCount = 4
     val startPage = Int.MAX_VALUE / 2
     val pagerState = rememberPagerState(
-        initialPage = startPage - (startPage % pageCount),
+        initialPage = startPage - (startPage % pageCount) + initialPage.mod(pageCount),
         pageCount = { Int.MAX_VALUE }
     )
+
+    val currentOnPageChanged by rememberUpdatedState(onPageChanged)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage % pageCount }
+            .collect { currentOnPageChanged?.invoke(it) }
+    }
 
     Column(Modifier.fillMaxSize()) {
         HorizontalPager(
