@@ -121,6 +121,8 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
     var exporting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var exportError by remember { mutableStateOf<String?>(null) }
+    // ZIP は作れたが、補足して知らせることがあるとき
+    var exportNotice by remember { mutableStateOf<String?>(null) }
     // GPX / KMZ の書き出し
     var showMoreMenu by remember { mutableStateOf(false) }
     var trackExportResult by remember { mutableStateOf<ExportSummary?>(null) }
@@ -152,9 +154,15 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         if (uri != null) {
             val targets = visibleSessions.filter { it.name in selected && it.name != currentSession?.name }
             exporting = true
+            // GPX / KMZ の高度は設定のジオイド高で標高に換算する
+            val geoidHeightM = Settings.geoidHeightM.value
             scope.launch {
-                val ok = withContext(Dispatchers.IO) {
-                    runCatching {
+                val (ensure, ok) = withContext(Dispatchers.IO) {
+                    // まだ無い track.gpx / track.kmz を先に作り、ZIP に含める（既にあるものはそのまま）。
+                    // 作れないセッションがあっても ZIP は作る
+                    val ensure = runCatching { TrackExport.ensureExports(targets, geoidHeightM) }
+                        .getOrDefault(EnsureSummary(created = 0, failed = 0))
+                    ensure to runCatching {
                         context.contentResolver.openOutputStream(uri)?.use { out ->
                             ZipOutputStream(BufferedOutputStream(out)).use { zip ->
                                 targets.forEach { dir ->
@@ -171,6 +179,10 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
                 exporting = false
                 if (ok) {
                     exitSelectMode()
+                    // ZIP はできたが GPX / KMZ を作れなかったセッションがあれば知らせる
+                    if (ensure.failed > 0) {
+                        exportNotice = resources.getString(R.string.history_export_convert_failed, ensure.failed)
+                    }
                 } else {
                     exportError = resources.getString(R.string.history_export_failed)
                 }
@@ -530,6 +542,17 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = { trackExportResult = null }) { Text("OK") }
+            }
+        )
+    }
+
+    exportNotice?.let { message ->
+        AlertDialog(
+            onDismissRequest = { exportNotice = null },
+            title = { Text(stringResource(R.string.history_export_done)) },
+            text = { Text(message, fontSize = 14.sp) },
+            confirmButton = {
+                TextButton(onClick = { exportNotice = null }) { Text("OK") }
             }
         )
     }

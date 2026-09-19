@@ -18,6 +18,12 @@ enum class TrackFormat(val label: String, val fileName: String) {
 data class ExportSummary(val format: TrackFormat, val succeeded: Int, val failed: Int)
 
 /**
+ * ZIP エクスポート前の自動生成の結果。
+ * created は新しく作ったファイルの数、failed は作れなかったファイルがあるセッションの数
+ */
+data class EnsureSummary(val created: Int, val failed: Int)
+
+/**
  * track.csv の測位点を GPX 1.1 / KML（KMZ）に変換する。
  * 出力するのは緯度・経度・高度・時刻だけで、アプリ独自の情報は含めない。
  * 一時停止で空いた区間（gap_before の点の手前）で区切る。
@@ -167,6 +173,45 @@ object TrackExport {
             }
         }
         return ExportSummary(format, ok, failed)
+    }
+
+    /**
+     * ZIP エクスポートの前処理。track.gpx / track.kmz のうち、まだ無い方だけを作る。
+     * 既にあるファイルは上書きしない（作り直しは 3 点メニューからの手動書き出しで行う）。
+     * 失敗したセッションがあっても、残りのセッションは続けて処理する。
+     * ファイルを読み書きするので、メインスレッドから呼ばないこと。
+     */
+    fun ensureExports(dirs: List<File>, geoidHeightM: Double = 0.0): EnsureSummary {
+        var created = 0
+        var failed = 0
+        for (dir in dirs) {
+            val missing = TrackFormat.entries.filter { !File(dir, it.fileName).exists() }
+            if (missing.isEmpty()) continue
+            // track.csv は無いファイルがあるときだけ、1 セッションにつき 1 回読む
+            val track = try {
+                SessionReader.readTrackRecords(dir)
+            } catch (e: Exception) {
+                null
+            }
+            if (track.isNullOrEmpty()) {
+                failed++
+                continue
+            }
+            var ok = true
+            for (format in missing) {
+                try {
+                    when (format) {
+                        TrackFormat.GPX -> writeGpx(dir, dir.name, track, geoidHeightM)
+                        TrackFormat.KMZ -> writeKmz(dir, dir.name, track, geoidHeightM)
+                    }
+                    created++
+                } catch (e: Exception) {
+                    ok = false
+                }
+            }
+            if (!ok) failed++
+        }
+        return EnsureSummary(created, failed)
     }
 
     /** 途中で落ちても壊れたファイルが残らないよう、一時ファイルに書いてから置き換える */

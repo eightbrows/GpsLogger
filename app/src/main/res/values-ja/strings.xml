@@ -89,6 +89,8 @@
 
     <!-- 履歴一覧 -->
     <string name="history_export_failed">エクスポートに失敗しました</string>
+    <string name="history_export_done">エクスポートしました</string>
+    <string name="history_export_convert_failed">ZIP は作成しましたが、%1$d 件のセッションで GPX・KMZ を作成できませんでした（測位点なし・読み込み失敗）。それらのセッションは GPX・KMZ を含めずにエクスポートしています。</string>
     <string name="history_clear_selection">選択解除</string>
     <string name="history_select_all">全選択</string>
     <string name="history_selected_count">%1$d 件</string>

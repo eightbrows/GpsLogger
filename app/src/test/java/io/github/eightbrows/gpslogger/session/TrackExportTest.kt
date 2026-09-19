@@ -293,4 +293,63 @@ class TrackExportTest {
         assertEquals(1, kmz.succeeded)
         assertTrue(File(v1, "track.kmz").exists())
     }
+
+    // ===== ZIP エクスポート前の自動生成 =====
+
+    private val v1Header = "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
+        "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
+        "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock"
+
+    private fun sessionWithTrack(name: String): File =
+        File(tmp.root, name).apply {
+            mkdirs()
+            File(this, "track.csv").writeText(
+                "$v1Header\nt,1000,0,gps,35.1,139.1,50.0,3,5,0,0,0,0,,,,,,false"
+            )
+        }
+
+    @Test
+    fun ensureExports_createsBothWhenMissing_withGeoidHeight() {
+        val dir = sessionWithTrack("session_20260915_090000")
+        val summary = TrackExport.ensureExports(listOf(dir), geoidHeightM = 36.0)
+        assertEquals(EnsureSummary(created = 2, failed = 0), summary)
+        val gpx = parseXml(File(dir, "track.gpx").readText())
+        assertEquals("14.00", gpx.all(gpxNs, "ele").single().textContent)
+        ZipFile(File(dir, "track.kmz")).use { zip ->
+            val kml = zip.getInputStream(zip.getEntry("doc.kml")).readBytes().toString(Charsets.UTF_8)
+            assertTrue(kml.contains("<gx:coord>139.10000000 35.10000000 14.00</gx:coord>"))
+        }
+        assertFalse(File(dir, "track.gpx.tmp").exists())
+        assertFalse(File(dir, "track.kmz.tmp").exists())
+    }
+
+    @Test
+    fun ensureExports_keepsExistingFile_andCreatesOnlyTheMissingOne() {
+        val dir = sessionWithTrack("session_20260915_090000")
+        File(dir, "track.gpx").writeText("manual")
+        val summary = TrackExport.ensureExports(listOf(dir), geoidHeightM = 36.0)
+        assertEquals(EnsureSummary(created = 1, failed = 0), summary)
+        // 既にある GPX は上書きしない
+        assertEquals("manual", File(dir, "track.gpx").readText())
+        assertTrue(File(dir, "track.kmz").exists())
+
+        // 両方あれば何もしない（track.csv も読まない）
+        File(dir, "track.csv").delete()
+        assertEquals(EnsureSummary(created = 0, failed = 0), TrackExport.ensureExports(listOf(dir)))
+    }
+
+    @Test
+    fun ensureExports_continuesPastFailedSessions() {
+        val noCsv = File(tmp.root, "session_20260915_080000").apply { mkdirs() }
+        val empty = File(tmp.root, "session_20260915_083000").apply { mkdirs() }
+        File(empty, "track.csv").writeText(v1Header)
+        val good = sessionWithTrack("session_20260915_090000")
+
+        val summary = TrackExport.ensureExports(listOf(noCsv, empty, good))
+        assertEquals(EnsureSummary(created = 2, failed = 2), summary)
+        assertTrue(File(good, "track.gpx").exists())
+        assertTrue(File(good, "track.kmz").exists())
+        assertFalse(File(noCsv, "track.gpx").exists())
+        assertFalse(File(empty, "track.kmz").exists())
+    }
 }

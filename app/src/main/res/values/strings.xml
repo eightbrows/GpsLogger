@@ -85,6 +85,8 @@
 
     <!-- History list -->
     <string name="history_export_failed">Export failed</string>
+    <string name="history_export_done">Exported</string>
+    <string name="history_export_convert_failed">The ZIP was created. Sessions without GPX/KMZ (no points or unreadable): %1$d. They were exported without these files.</string>
     <string name="history_clear_selection">Clear selection</string>
     <string name="history_select_all">Select all</string>
     <string name="history_selected_count">%1$d selected</string>
