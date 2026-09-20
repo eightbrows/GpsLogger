@@ -186,7 +186,7 @@ class TrackExportTest {
 
     @Test
     fun geoidHeight_isSubtractedInGpx() {
-        val doc = parseXml(TrackExport.toGpx("s", track, geoidHeightM = 36.0))
+        val doc = parseXml(TrackExport.toGpx("s", track, geoidOffsetM = 36.0))
         val eles = doc.all(gpxNs, "ele").map { it.textContent }
         // 楕円体高 40〜45 m − 36 m
         assertEquals(listOf("4.00", "5.00", "6.00", "7.00", "8.00", "9.00"), eles)
@@ -194,7 +194,7 @@ class TrackExportTest {
 
     @Test
     fun geoidHeight_isSubtractedInKml() {
-        val doc = parseXml(TrackExport.toKml("s", track, geoidHeightM = 36.5))
+        val doc = parseXml(TrackExport.toKml("s", track, geoidOffsetM = 36.5))
         val coords = doc.all(gxNs, "coord").map { it.textContent }
         assertEquals("139.76712500 35.68123600 3.50", coords.first())
         assertEquals("139.90000000 35.75000000 8.50", coords.last())
@@ -202,7 +202,7 @@ class TrackExportTest {
 
     @Test
     fun geoidHeight_zeroMeansNoCorrection_andNegativeAddsHeight() {
-        assertEquals(TrackExport.toGpx("s", track), TrackExport.toGpx("s", track, geoidHeightM = 0.0))
+        assertEquals(TrackExport.toGpx("s", track), TrackExport.toGpx("s", track, geoidOffsetM = 0.0))
         assertEquals(40.0, TrackExport.outputAltitude(track[0], 0.0)!!, 0.0)
         // ジオイド高が負の地域（例: インド洋）では楕円体高より高くなる
         assertEquals(50.0, TrackExport.outputAltitude(track[0], -10.0)!!, 0.0)
@@ -218,7 +218,7 @@ class TrackExportTest {
             "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock"
         val dir = File(tmp.root, "session_20260815_090000").apply { mkdirs() }
         File(dir, "track.csv").writeText("$header\nt,1000,0,gps,35.1,139.1,50.25,3,5,0,0,0,0,,,,,,false")
-        TrackExport.exportSessions(listOf(dir), TrackFormat.GPX, geoidHeightM = 36.0)
+        TrackExport.exportSessions(listOf(dir), TrackFormat.GPX, fallbackGeoidM = 36.0)
         val doc = parseXml(File(dir, "track.gpx").readText())
         assertEquals("14.25", doc.all(gpxNs, "ele").single().textContent)
     }
@@ -294,6 +294,45 @@ class TrackExportTest {
         assertTrue(File(v1, "track.kmz").exists())
     }
 
+    @Test
+    fun exportSessions_usesGeoidFromMetaJson_perSegment() {
+        val dir = File(tmp.root, "session_20260915_092000").apply { mkdirs() }
+        val header = "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
+            "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
+            "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock,gap_before,interval_sec,pressure_hpa"
+        File(dir, "track.csv").writeText(
+            (listOf(header) + track.map { p ->
+                "t,${p.epochMs},0,gps,${p.latitude},${p.longitude},${p.altitude}," +
+                    "3,5,0,0,0,0,,,,,,false,${p.gapBefore},1,"
+            }).joinToString("\n")
+        )
+        // 最初の区間だけ 30 m、残りはセッション全体の 40 m を使う
+        SessionMeta(
+            geoidOffsetM = 40.0,
+            segments = listOf(
+                Segment(
+                    start = SessionMeta.timeOf(track[0].epochMs),
+                    end = SessionMeta.timeOf(track[2].epochMs),
+                    points = 3,
+                    geoidOffsetM = 30.0
+                ),
+                Segment(
+                    start = SessionMeta.timeOf(track[3].epochMs),
+                    end = SessionMeta.timeOf(track[5].epochMs),
+                    points = 3
+                )
+            )
+        ).writeTo(dir)
+
+        // アプリ全体の設定（36 m）ではなく meta.json の値を使う
+        TrackExport.exportSessions(listOf(dir), TrackFormat.GPX, fallbackGeoidM = 36.0)
+        val doc = parseXml(File(dir, "track.gpx").readText())
+        assertEquals(
+            listOf("10.00", "11.00", "12.00", "3.00", "4.00", "5.00"),
+            doc.all(gpxNs, "ele").map { it.textContent }
+        )
+    }
+
     // ===== ZIP エクスポート前の自動生成 =====
 
     private val v1Header = "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
@@ -311,7 +350,7 @@ class TrackExportTest {
     @Test
     fun ensureExports_createsBothWhenMissing_withGeoidHeight() {
         val dir = sessionWithTrack("session_20260915_090000")
-        val summary = TrackExport.ensureExports(listOf(dir), geoidHeightM = 36.0)
+        val summary = TrackExport.ensureExports(listOf(dir), fallbackGeoidM = 36.0)
         assertEquals(EnsureSummary(created = 2, failed = 0), summary)
         val gpx = parseXml(File(dir, "track.gpx").readText())
         assertEquals("14.00", gpx.all(gpxNs, "ele").single().textContent)
@@ -327,7 +366,7 @@ class TrackExportTest {
     fun ensureExports_keepsExistingFile_andCreatesOnlyTheMissingOne() {
         val dir = sessionWithTrack("session_20260915_090000")
         File(dir, "track.gpx").writeText("manual")
-        val summary = TrackExport.ensureExports(listOf(dir), geoidHeightM = 36.0)
+        val summary = TrackExport.ensureExports(listOf(dir), fallbackGeoidM = 36.0)
         assertEquals(EnsureSummary(created = 1, failed = 0), summary)
         // 既にある GPX は上書きしない
         assertEquals("manual", File(dir, "track.gpx").readText())

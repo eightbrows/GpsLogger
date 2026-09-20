@@ -148,10 +148,13 @@ class SessionMetaTest {
     @Test
     fun flatten_pathsFollowMetaJsonOrder() {
         val expected = listOf(
-            "schemaVersion", "comment", "tags", "basePressureHpa", "start", "end",
+            "schemaVersion", "comment", "tags", "basePressureHpa", "geoidOffsetM", "leapSeconds",
+            "start", "end",
             "pointCount", "distanceM",
-            "segments[0].start", "segments[0].end", "segments[0].points", "segments[0].basePressureHpa",
-            "segments[1].start", "segments[1].end", "segments[1].points", "segments[1].basePressureHpa",
+            "segments[0].start", "segments[0].end", "segments[0].points",
+            "segments[0].basePressureHpa", "segments[0].geoidOffsetM",
+            "segments[1].start", "segments[1].end", "segments[1].points",
+            "segments[1].basePressureHpa", "segments[1].geoidOffsetM",
             "useWakeLock", "deviceModel", "osVersion", "appVersion"
         )
         assertEquals(expected, MetaPaths.flatten(sample).map { it.path })
@@ -187,8 +190,9 @@ class SessionMetaTest {
         val editable = MetaPaths.flatten(sample).filter { it.editable }.map { it.path }
         assertEquals(
             listOf(
-                "comment", "tags", "basePressureHpa",
-                "segments[0].basePressureHpa", "segments[1].basePressureHpa"
+                "comment", "tags", "basePressureHpa", "geoidOffsetM", "leapSeconds",
+                "segments[0].basePressureHpa", "segments[0].geoidOffsetM",
+                "segments[1].basePressureHpa", "segments[1].geoidOffsetM"
             ),
             editable
         )
@@ -225,7 +229,8 @@ class SessionMetaTest {
         for (n in listOf(0, 1, 2, 50)) {
             val meta = SessionMeta(segments = List(n) { Segment(start = null, end = null) })
             val editable = MetaPaths.flatten(meta).count { it.editable }
-            assertEquals("segments=$n", 3 + n, editable)
+            // comment・tags・basePressureHpa・geoidOffsetM・leapSeconds ＋ 区間ごとに 2 項目
+            assertEquals("segments=$n", 5 + 2 * n, editable)
         }
     }
 

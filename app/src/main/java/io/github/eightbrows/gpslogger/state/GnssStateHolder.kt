@@ -159,6 +159,11 @@ data class ViewSnapshot(
     /** pressureHpa から高度を計算するときの基準気圧（hPa） */
     val basePressureHpa: Float = BarometerReader.STANDARD_PRESSURE_HPA,
     val trackPoints: List<TrackPoint> = emptyList(),
+    /**
+     * Z-count の算出に使ううるう秒（GPS − UTC、秒）。
+     * null なら記録中か未設定なので、アプリ全体の設定値を使う
+     */
+    val leapSeconds: Int? = null,
     val timeMs: Long = 0L,
     val markerIndex: Int? = null,  // 再生時の選択位置。nullなら末尾＝現在地
     val isRecording: Boolean = false,

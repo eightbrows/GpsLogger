@@ -1,6 +1,7 @@
 package io.github.eightbrows.gpslogger.session
 
 import java.math.BigDecimal
+import kotlin.math.abs
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -19,7 +20,10 @@ sealed interface MetaEditResult {
     /** 失敗の理由。文言は画面側で表示言語に合わせて決める */
     data class Failure(val reason: Reason, val segmentIndex: Int? = null) : MetaEditResult
 
-    enum class Reason { NOT_EDITABLE, PRESSURE_REQUIRED, INVALID_PRESSURE, SEGMENT_NOT_FOUND }
+    enum class Reason {
+        NOT_EDITABLE, PRESSURE_REQUIRED, INVALID_PRESSURE, INVALID_GEOID, INVALID_LEAP_SECONDS,
+        SEGMENT_NOT_FOUND
+    }
 }
 
 /**
@@ -29,17 +33,26 @@ sealed interface MetaEditResult {
 object MetaPaths {
 
     private val INDEX = Regex("""\[\d+]""")
-    private val SEGMENT_BASE_PRESSURE = Regex("""^segments\[(\d+)]\.basePressureHpa$""")
+    private val SEGMENT_FIELD = Regex("""^segments\[(\d+)]\.(basePressureHpa|geoidOffsetM)$""")
 
     /** 気圧の入力として受け付ける形（符号・指数・16進などは受け付けない） */
     private val DECIMAL = Regex("""^\d+(\.\d+)?$""")
+
+    /** ジオイド高は負の値もある（ジオイドが楕円体より下にある地域） */
+    private val SIGNED_DECIMAL = Regex("""^-?\d+(\.\d+)?$""")
+
+    /** うるう秒は整数 */
+    private val INTEGER = Regex("""^\d+$""")
 
     /** 編集できるパス。区間の番号は [*] で表し、区間の数に依存しない */
     private val EDITABLE = setOf(
         "comment",
         "tags",
         "basePressureHpa",
-        "segments[*].basePressureHpa"
+        "geoidOffsetM",
+        "leapSeconds",
+        "segments[*].basePressureHpa",
+        "segments[*].geoidOffsetM"
     )
 
     /** パスの番号部分をワイルドカードに置き換える。"segments[12].end" → "segments[*].end" */
@@ -54,6 +67,8 @@ object MetaPaths {
         rows += "comment" to meta.comment
         rows += "tags" to joinTags(meta.tags)
         rows += "basePressureHpa" to number(meta.basePressureHpa)
+        rows += "geoidOffsetM" to meta.geoidOffsetM?.let(::number)
+        rows += "leapSeconds" to meta.leapSeconds?.toString()
         rows += "start" to time(meta.start)
         rows += "end" to time(meta.end)
         rows += "pointCount" to meta.pointCount.toString()
@@ -64,6 +79,7 @@ object MetaPaths {
             rows += "$p.end" to time(s.end)
             rows += "$p.points" to s.points.toString()
             rows += "$p.basePressureHpa" to s.basePressureHpa?.let(::number)
+            rows += "$p.geoidOffsetM" to s.geoidOffsetM?.let(::number)
         }
         rows += "useWakeLock" to meta.useWakeLock.toString()
         rows += "deviceModel" to meta.deviceModel
@@ -77,10 +93,13 @@ object MetaPaths {
         "comment" -> meta.comment
         "tags" -> joinTags(meta.tags)
         "basePressureHpa" -> number(meta.basePressureHpa)
-        else -> segmentIndex(path)
-            ?.let { meta.segments.getOrNull(it)?.basePressureHpa }
-            ?.let(::number)
-            ?: ""
+        "geoidOffsetM" -> meta.geoidOffsetM?.let(::number) ?: ""
+        "leapSeconds" -> meta.leapSeconds?.toString() ?: ""
+        else -> {
+            val segment = segmentIndex(path)?.let { meta.segments.getOrNull(it) }
+            val value = if (isGeoid(path)) segment?.geoidOffsetM else segment?.basePressureHpa
+            value?.let(::number) ?: ""
+        }
     }
 
     /**
@@ -105,6 +124,25 @@ object MetaPaths {
                 MetaEditResult.Success(meta.copy(basePressureHpa = value))
             }
 
+            // 空欄は「未設定」（アプリ全体の設定値を使う）
+            "geoidOffsetM" -> {
+                val text = input.trim()
+                val value = if (text.isEmpty()) null else {
+                    parseGeoid(text) ?: return MetaEditResult.Failure(MetaEditResult.Reason.INVALID_GEOID)
+                }
+                MetaEditResult.Success(meta.copy(geoidOffsetM = value))
+            }
+
+            // 空欄は「未設定」（アプリ全体の設定値を使う）
+            "leapSeconds" -> {
+                val text = input.trim()
+                val value = if (text.isEmpty()) null else {
+                    parseLeapSeconds(text)
+                        ?: return MetaEditResult.Failure(MetaEditResult.Reason.INVALID_LEAP_SECONDS)
+                }
+                MetaEditResult.Success(meta.copy(leapSeconds = value))
+            }
+
             else -> {
                 val index = segmentIndex(path)
                     ?: return MetaEditResult.Failure(MetaEditResult.Reason.NOT_EDITABLE)
@@ -112,14 +150,19 @@ object MetaPaths {
                     return MetaEditResult.Failure(MetaEditResult.Reason.SEGMENT_NOT_FOUND, index)
                 }
                 val text = input.trim()
-                // 空欄は「未設定」（セッション全体の基準気圧を使う）
-                val value = if (text.isEmpty()) {
-                    null
-                } else {
-                    parsePressure(text) ?: return MetaEditResult.Failure(MetaEditResult.Reason.INVALID_PRESSURE)
+                val geoid = isGeoid(path)
+                // 空欄は「未設定」（セッション全体の値を使う）
+                val value = if (text.isEmpty()) null else {
+                    val parsed = if (geoid) parseGeoid(text) else parsePressure(text)
+                    parsed ?: return MetaEditResult.Failure(
+                        if (geoid) MetaEditResult.Reason.INVALID_GEOID
+                        else MetaEditResult.Reason.INVALID_PRESSURE
+                    )
                 }
                 val segments = meta.segments.toMutableList()
-                segments[index] = segments[index].copy(basePressureHpa = value)
+                segments[index] =
+                    if (geoid) segments[index].copy(geoidOffsetM = value)
+                    else segments[index].copy(basePressureHpa = value)
                 MetaEditResult.Success(meta.copy(segments = segments))
             }
         }
@@ -131,11 +174,30 @@ object MetaPaths {
 
     private fun joinTags(tags: List<String>): String = tags.joinToString(", ")
 
+    /** "segments[2].geoidOffsetM" のようなパスが指す区間。区間のパスでなければ null */
+    fun segmentOf(meta: SessionMeta, path: String): Segment? =
+        segmentIndex(path)?.let { meta.segments.getOrNull(it) }
+
     private fun segmentIndex(path: String): Int? =
-        SEGMENT_BASE_PRESSURE.matchEntire(path)?.groupValues?.get(1)?.toIntOrNull()
+        SEGMENT_FIELD.matchEntire(path)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** ジオイド高の項目（セッション全体・区間別のどちらも）かどうか */
+    private fun isGeoid(path: String): Boolean = path.endsWith("geoidOffsetM")
 
     private fun parsePressure(text: String): Double? =
         if (DECIMAL.matches(text)) text.toDouble().takeIf { it.isFinite() && it > 0.0 } else null
+
+    private fun parseLeapSeconds(text: String): Int? =
+        if (INTEGER.matches(text)) {
+            text.toIntOrNull()
+                ?.takeIf { it in SessionMeta.MIN_LEAP_SECONDS..SessionMeta.MAX_LEAP_SECONDS }
+        } else null
+
+    /** ジオイド高は 0 も負の値も受け付ける。地球上のジオイド高の範囲を超える値は受け付けない */
+    private fun parseGeoid(text: String): Double? =
+        if (SIGNED_DECIMAL.matches(text)) {
+            text.toDouble().takeIf { it.isFinite() && abs(it) <= SessionMeta.GEOID_LIMIT_M }
+        } else null
 
     /** 1013.25 → "1013.25"、1013.0 → "1013"。指数表記にはしない */
     private fun number(v: Double): String =

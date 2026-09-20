@@ -141,6 +141,13 @@
     <string name="meta_hint_tags">Comma-separated (e.g. travel, favorite)</string>
     <string name="meta_hint_base_pressure">In hPa. Can\'t be empty</string>
     <string name="meta_hint_segment_pressure">In hPa. Leave empty to unset (uses the session value)</string>
+    <string name="meta_hint_geoid">In meters. Used for GPX/KMZ altitudes. Leave empty to unset (uses the app setting)</string>
+    <string name="meta_hint_segment_geoid">In meters. Leave empty to unset (uses the session value)</string>
+    <string name="meta_error_invalid_geoid">Enter a number between -120 and 120 for the geoid height</string>
+    <string name="meta_error_invalid_leap_seconds">Enter a whole number between 0 and 99 for the leap seconds</string>
+    <string name="meta_clear_value">Unset</string>
+    <string name="meta_unset_uses_app">Unset means the app setting is used</string>
+    <string name="meta_unset_uses_session">Unset means the value for the whole session is used</string>
     <string name="meta_empty">(empty)</string>
     <string name="meta_unset">Unset</string>
     <string name="meta_edit">Edit</string>
@@ -172,9 +179,17 @@
     <string name="settings_wakelock">Use WakeLock</string>
     <string name="settings_wakelock_note">Prevents missed fixes while the screen is off (uses more battery; the device\'s power saving may limit the effect)</string>
     <string name="settings_leap_seconds">Leap seconds (GPS − UTC)</string>
-    <string name="settings_leap_seconds_note">Used to compute the Z-count (default 18)</string>
+    <string name="settings_leap_seconds_note">Used to calculate Z-count (default: 18)</string>
+    <string name="settings_reset_to">Reset %1$s to its default</string>
+    <string name="settings_leap_seconds_hint">%1$d to %2$d s (default %3$d)</string>
+    <string name="unit_second">s</string>
+    <string name="settings_base_pressure">Base pressure (hPa)</string>
+    <string name="settings_base_pressure_note">Base value for barometric altitude (default: 1013.25 hPa)</string>
+    <string name="settings_base_pressure_inhg">(%1$s inHg)</string>
+    <string name="settings_base_pressure_hint_hpa">%1$s to %2$s hPa (default %3$s)</string>
+    <string name="settings_base_pressure_hint_inhg">%1$s to %2$s inHg (= %3$s hPa)</string>
     <string name="settings_geoid_height">Geoid height (m)</string>
-    <string name="settings_geoid_height_note">GPX/KMZ altitudes are exported as ellipsoidal height − this value. 0 = no correction (default 36.0, typical for Japan). Tap the number to enter it</string>
+    <string name="settings_geoid_height_note">GPX/KMZ altitude = ellipsoidal height − geoid offset. 0 outputs ellipsoidal height (default: 36.0, typical for Japan)</string>
     <string name="settings_geoid_height_hint">%1$s to %2$s m, in 0.1 m steps (default %3$s)</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_note">Switches the app\'s color scheme</string>

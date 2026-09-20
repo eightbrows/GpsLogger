@@ -60,6 +60,11 @@ class LoggerService : Service() {
 
     private var startTimeMs = 0L
 
+    // 記録開始時点のアプリ設定。記録中に設定を変えても、このセッションの meta.json には反映しない
+    private var basePressureAtStart = SessionMeta.DEFAULT_BASE_PRESSURE_HPA
+    private var geoidOffsetAtStart = SessionMeta.DEFAULT_GEOID_OFFSET_M
+    private var leapSecondsAtStart = SessionMeta.DEFAULT_LEAP_SECONDS
+
     /** 記録開始時の設定間隔（秒）。記録中に設定が変わってもセッション内で固定する */
     private var sessionIntervalSec = 0
     private var fixCount = 0
@@ -202,10 +207,18 @@ class LoggerService : Service() {
             GnssStateHolder.reset()
             GnssStateHolder.setLogging(true)
             GnssStateHolder.setPaused(false)   // reset()では消えないので明示的に戻す
-            // 気圧高度の基準気圧。記録中は meta.json を編集できないため、開始時点の値を使い続ける。
-            // 新しいセッションには通常 meta.json が無いので標準大気になる
+            // 気圧高度の基準気圧とジオイド高。記録中は meta.json を編集できないため、
+            // 開始時点の値を使い続け、記録終了時に meta.json へ書き込む。
+            // 新しいセッションには通常 meta.json が無いので、アプリ全体の設定値になる
+            basePressureAtStart = Settings.basePressureHpa.value
+            geoidOffsetAtStart = Settings.geoidHeightM.value
+            leapSecondsAtStart = Settings.leapSeconds.value
             GnssStateHolder.setBasePressure(
-                resolveBasePressureHpa(SessionReader.readMeta(sessionDir), startTimeMs)
+                resolveBasePressureHpa(
+                    SessionReader.readMeta(sessionDir),
+                    startTimeMs,
+                    basePressureAtStart.toFloat()
+                )
             )
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
@@ -388,10 +401,16 @@ class LoggerService : Service() {
         val points = fixCount
         val segs = segments.toList()
         val useWakeLock = Settings.useWakeLock.value
+        val basePressure = basePressureAtStart
+        val geoidOffset = geoidOffsetAtStart
+        val leapSeconds = leapSecondsAtStart
 
         Thread({
             try {
                 SessionMeta(
+                    basePressureHpa = basePressure,
+                    geoidOffsetM = geoidOffset,
+                    leapSeconds = leapSeconds,
                     start = start,
                     end = end,
                     pointCount = points,

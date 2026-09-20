@@ -31,6 +31,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.ui.unit.Dp
+import io.github.eightbrows.gpslogger.calc.PressureUnits
+import io.github.eightbrows.gpslogger.ui.BasePressureDialog
+import io.github.eightbrows.gpslogger.ui.GeoidOffsetDialog
+import io.github.eightbrows.gpslogger.ui.LeapSecondsDialog
+import io.github.eightbrows.gpslogger.ui.SegmentedControl
+import io.github.eightbrows.gpslogger.ui.formatGeoid
+import io.github.eightbrows.gpslogger.ui.formatHpa
+import io.github.eightbrows.gpslogger.ui.formatInHg
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -209,6 +219,9 @@ fun SettingsScreen() {
         // --- うるう秒 ---
         LeapSecondsRow()
 
+        // --- 基準気圧（新しい記録の meta.json に書く初期値） ---
+        BasePressureRow()
+
         // --- ジオイド高（GPX / KMZ の標高換算） ---
         GeoidHeightRow()
 
@@ -299,60 +312,6 @@ private fun Divider12() {
 @Composable
 private fun Divider14() {
     androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 14.dp))
-}
-
-/** N択の排他選択を横並びの帯（セグメントコントロール）で表す */
-@Composable
-private fun <T> SegmentedControl(
-    options: List<T>,
-    selected: T,
-    label: @Composable (T) -> String,
-    enabled: Boolean = true,
-    onSelect: (T) -> Unit
-) {
-    val shape = RoundedCornerShape(8.dp)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .clip(shape)
-            .border(0.5.dp, MaterialTheme.colorScheme.outline, shape)
-    ) {
-        options.forEachIndexed { index, option ->
-            if (index > 0) {
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .width(1.dp)
-                        .background(MaterialTheme.colorScheme.outline)
-                )
-            }
-            val isSelected = option == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable(enabled = enabled) { onSelect(option) }
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-                    )
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    label(option),
-                    fontSize = 12.sp,
-                    color = when {
-                        isSelected -> MaterialTheme.colorScheme.onPrimary
-                        !enabled -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.onSurface
-                    },
-                    maxLines = 1,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
 }
 
 /** 強調の選択肢（記号）の意味を示す注記。「うるう秒」の説明文と同じ見た目 */
@@ -457,134 +416,181 @@ private fun <T> MultiSegmentedControl(
     }
 }
 
-/** うるう秒: ラベル＋補足を左、+/-と数値を右に1行で収める */
+/** うるう秒: ラベル＋補足を左、+/-・数値・↺ を右に1行で収める。↺ で初期値（18）に戻す */
 @Composable
 private fun LeapSecondsRow() {
     val leapSeconds by Settings.leapSeconds.collectAsState()
-
-    Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.settings_leap_seconds), fontSize = 14.sp)
-            Text(
-                stringResource(R.string.settings_leap_seconds_note),
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.outline
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StepButton("+") {
-                Settings.setLeapSeconds((leapSeconds + 1).coerceIn(0, 99))
-            }
-            Text(
-                "$leapSeconds",
-                Modifier.width(24.dp),
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
-            StepButton("−") {
-                Settings.setLeapSeconds((leapSeconds - 1).coerceIn(0, 99))
-            }
-        }
-    }
-}
-
-/**
- * ジオイド高: うるう秒と同じ形。+/- は 1 m 刻み、数値をタップすると 0.1 m 単位で直接入力できる
- */
-@Composable
-private fun GeoidHeightRow() {
-    val geoidHeight by Settings.geoidHeightM.collectAsState()
     var editing by remember { mutableStateOf(false) }
 
-    Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.settings_geoid_height), fontSize = 14.sp)
-            Text(
-                stringResource(R.string.settings_geoid_height_note),
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
-                color = MaterialTheme.colorScheme.outline
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StepButton("+") { Settings.setGeoidHeightM(geoidHeight + 1.0) }
-            Text(
-                formatGeoid(geoidHeight),
-                Modifier
-                    .width(48.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable { editing = true }
-                    .padding(vertical = 4.dp),
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
-            StepButton("−") { Settings.setGeoidHeightM(geoidHeight - 1.0) }
-        }
-    }
+    StepperRow(
+        title = stringResource(R.string.settings_leap_seconds),
+        note = stringResource(R.string.settings_leap_seconds_note),
+        value = "$leapSeconds",
+        onIncrease = { Settings.setLeapSeconds(leapSeconds + 1) },
+        onDecrease = { Settings.setLeapSeconds(leapSeconds - 1) },
+        onEdit = { editing = true },
+        onReset = { Settings.resetLeapSeconds() },
+        resetDescription = stringResource(
+            R.string.settings_reset_to, stringResource(R.string.settings_leap_seconds)
+        )
+    )
 
     if (editing) {
-        GeoidHeightDialog(
-            initial = geoidHeight,
+        LeapSecondsDialog(
+            initial = leapSeconds,
             onDismiss = { editing = false },
-            onSave = {
-                Settings.setGeoidHeightM(it)
+            onSave = { value ->
+                value?.let { Settings.setLeapSeconds(it) }
                 editing = false
             }
         )
     }
 }
 
-private fun formatGeoid(m: Double): String = String.format(Locale.ROOT, "%.1f", m)
-
-/** ジオイド高の直接入力。範囲外・数値でない入力は保存させない */
+/**
+ * ジオイド高: うるう秒と同じ形。+/- は 1 m 刻み、数値をタップすると 0.1 m 単位で直接入力できる。
+ * ↺ で初期値（36.0 m）に戻す
+ */
 @Composable
-private fun GeoidHeightDialog(initial: Double, onDismiss: () -> Unit, onSave: (Double) -> Unit) {
-    var text by remember { mutableStateOf(formatGeoid(initial)) }
-    // 小数点にカンマを使う言語のキーボードでも受け付ける
-    val value = text.trim().replace(',', '.').toDoubleOrNull()
-        ?.takeIf { it.isFinite() && abs(it) <= Settings.GEOID_LIMIT_M }
+private fun GeoidHeightRow() {
+    val geoidHeight by Settings.geoidHeightM.collectAsState()
+    var editing by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_geoid_height), fontSize = 16.sp) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = value == null,
-                suffix = { Text("m") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                supportingText = {
+    StepperRow(
+        title = stringResource(R.string.settings_geoid_height),
+        note = stringResource(R.string.settings_geoid_height_note),
+        value = formatGeoid(geoidHeight),
+        onIncrease = { Settings.setGeoidHeightM(geoidHeight + 1.0) },
+        onDecrease = { Settings.setGeoidHeightM(geoidHeight - 1.0) },
+        onEdit = { editing = true },
+        onReset = { Settings.resetGeoidHeightM() },
+        resetDescription = stringResource(
+            R.string.settings_reset_to, stringResource(R.string.settings_geoid_height)
+        )
+    )
+
+    if (editing) {
+        GeoidOffsetDialog(
+            initialM = geoidHeight,
+            onDismiss = { editing = false },
+            onSave = { value ->
+                value?.let { Settings.setGeoidHeightM(it) }
+                editing = false
+            }
+        )
+    }
+}
+
+/**
+ * 基準気圧: 気圧高度の基準。新しい記録の meta.json に初期値として書き込む。
+ * +/- は 1 hPa 刻み、数値をタップすると hPa と inHg（水銀柱インチ）のどちらでも直接入力できる。
+ * ↺ で初期値（標準大気 1013.25 hPa）に戻す
+ */
+@Composable
+private fun BasePressureRow() {
+    val basePressure by Settings.basePressureHpa.collectAsState()
+    var editing by remember { mutableStateOf(false) }
+
+    StepperRow(
+        title = stringResource(R.string.settings_base_pressure),
+        note = stringResource(R.string.settings_base_pressure_note),
+        value = formatHpa(basePressure),
+        // hPa の下に inHg（水銀柱インチ）換算を常に出す
+        subValue = stringResource(
+            R.string.settings_base_pressure_inhg,
+            formatInHg(PressureUnits.inHgFromHpa(basePressure))
+        ),
+        valueWidth = 74.dp,
+        onIncrease = { Settings.setBasePressureHpa(basePressure + 1.0) },
+        onDecrease = { Settings.setBasePressureHpa(basePressure - 1.0) },
+        onEdit = { editing = true },
+        onReset = { Settings.resetBasePressureHpa() },
+        resetDescription = stringResource(
+            R.string.settings_reset_to, stringResource(R.string.settings_base_pressure)
+        )
+    )
+
+    if (editing) {
+        BasePressureDialog(
+            initialHpa = basePressure,
+            onDismiss = { editing = false },
+            onSave = { value ->
+                value?.let { Settings.setBasePressureHpa(it) }
+                editing = false
+            }
+        )
+    }
+}
+
+/** ラベルと補足を左、+/-・数値・リセットを右に1行で収める（うるう秒の行と同じ並び） */
+@Composable
+private fun StepperRow(
+    title: String,
+    note: String,
+    value: String,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit,
+    onReset: () -> Unit,
+    resetDescription: String,
+    /** 数値の下に小さく添える換算値など。null なら数値だけ */
+    subValue: String? = null,
+    /** null なら数値をタップしても何も起きない（直接入力できない項目） */
+    onEdit: (() -> Unit)? = null,
+    valueWidth: Dp = 48.dp
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 14.sp)
+            Text(
+                note,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StepButton("+", onIncrease)
+            Column(
+                Modifier
+                    .width(valueWidth)
+                    .clip(RoundedCornerShape(4.dp))
+                    .then(if (onEdit != null) Modifier.clickable(onClick = onEdit) else Modifier)
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(value, fontSize = 13.sp, textAlign = TextAlign.Center)
+                if (subValue != null) {
                     Text(
-                        stringResource(
-                            R.string.settings_geoid_height_hint,
-                            formatGeoid(-Settings.GEOID_LIMIT_M),
-                            formatGeoid(Settings.GEOID_LIMIT_M),
-                            formatGeoid(Settings.DEFAULT_GEOID_HEIGHT_M)
-                        )
+                        subValue,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        color = MaterialTheme.colorScheme.outline,
+                        textAlign = TextAlign.Center
                     )
                 }
-            )
-        },
-        confirmButton = {
-            TextButton(enabled = value != null, onClick = { value?.let(onSave) }) {
-                Text(stringResource(R.string.meta_save))
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            StepButton("−", onDecrease)
+            Box(
+                Modifier
+                    .padding(start = 6.dp)
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable(onClick = onReset),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Refresh,
+                    contentDescription = resetDescription,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
-    )
+    }
 }
 
 @Composable

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.content.edit
+import io.github.eightbrows.gpslogger.session.SessionMeta
 import kotlin.math.roundToInt
 
 /** 座標の表示形式 */
@@ -68,8 +69,10 @@ object Settings {
             prefs.getString(KEY_COORD_FORMAT, CoordFormat.DECIMAL.name)!!
         )
         _splitRatio.value = prefs.getFloat(KEY_SPLIT_RATIO, 0.5f)
-        _leapSeconds.value = prefs.getInt(KEY_LEAP_SECONDS, 18)
+        _leapSeconds.value = prefs.getInt(KEY_LEAP_SECONDS, DEFAULT_LEAP_SECONDS)
         _geoidHeightM.value = prefs.getInt(KEY_GEOID_HEIGHT_DM, DEFAULT_GEOID_HEIGHT_DM) / 10.0
+        _basePressureHpa.value =
+            prefs.getInt(KEY_BASE_PRESSURE_CENTI, DEFAULT_BASE_PRESSURE_CENTI) / 100.0
 
         _recordingColor.value = prefs.getInt(KEY_RECORDING_COLOR, DEFAULT_RECORDING_COLOR)
         _previewColor.value = prefs.getInt(KEY_PREVIEW_COLOR, DEFAULT_PREVIEW_COLOR)
@@ -175,10 +178,20 @@ object Settings {
         prefs.edit { putFloat(KEY_SPLIT_RATIO, ratio)}
     }
 
+    /** うるう秒を設定する。受け付ける範囲に収める */
     fun setLeapSeconds(sec: Int) {
-        _leapSeconds.value = sec
-        prefs.edit { putInt(KEY_LEAP_SECONDS, sec)}
+        val value = sec.coerceIn(MIN_LEAP_SECONDS, MAX_LEAP_SECONDS)
+        _leapSeconds.value = value
+        prefs.edit { putInt(KEY_LEAP_SECONDS, value)}
     }
+
+    /** うるう秒を初期値（18秒）に戻す */
+    fun resetLeapSeconds() = setLeapSeconds(DEFAULT_LEAP_SECONDS)
+
+    /** GPS時刻とUTCの差（2026年時点で18秒）。meta.json の既定値と同じ */
+    const val DEFAULT_LEAP_SECONDS = SessionMeta.DEFAULT_LEAP_SECONDS
+    const val MIN_LEAP_SECONDS = SessionMeta.MIN_LEAP_SECONDS
+    const val MAX_LEAP_SECONDS = SessionMeta.MAX_LEAP_SECONDS
 
     /** 選択可能な記録間隔（秒） */
     val intervalOptions = listOf(1, 2, 4, 8, 16, 32)
@@ -188,7 +201,7 @@ object Settings {
     private const val KEY_COORD_FORMAT = "coord_format"
     private const val KEY_SPLIT_RATIO = "split_ratio"
 
-    private val _leapSeconds = MutableStateFlow(18)
+    private val _leapSeconds = MutableStateFlow(DEFAULT_LEAP_SECONDS)
     val leapSeconds: StateFlow<Int> = _leapSeconds.asStateFlow()
 
     // ---- ジオイド高（GPX / KMZ の高度を「楕円体高 − ジオイド高」で標高に換算する） ----
@@ -208,13 +221,46 @@ object Settings {
         prefs.edit { putInt(KEY_GEOID_HEIGHT_DM, dm) }
     }
 
-    /** 日本付近の平均的なジオイド高の目安 */
-    const val DEFAULT_GEOID_HEIGHT_M = 36.0
+    /** ジオイド高を初期値（36.0 m）に戻す */
+    fun resetGeoidHeightM() = setGeoidHeightM(DEFAULT_GEOID_HEIGHT_M)
+
+    /** 日本付近の平均的なジオイド高の目安。meta.json の既定値と同じ */
+    const val DEFAULT_GEOID_HEIGHT_M = SessionMeta.DEFAULT_GEOID_OFFSET_M
     private const val DEFAULT_GEOID_HEIGHT_DM = 360
     /** 設定できる範囲（±120 m。地球上のジオイド高はおよそ −107〜+86 m） */
-    const val GEOID_LIMIT_M = 120.0
+    const val GEOID_LIMIT_M = SessionMeta.GEOID_LIMIT_M
     private const val GEOID_LIMIT_DM = 1200
     private const val KEY_GEOID_HEIGHT_DM = "geoid_height_dm"
+
+    // ---- 基準気圧（新しい記録の meta.json に書く初期値。気圧高度の基準） ----
+
+    private val _basePressureHpa = MutableStateFlow(DEFAULT_BASE_PRESSURE_HPA)
+
+    /** 基準気圧（hPa、0.01 hPa 単位） */
+    val basePressureHpa: StateFlow<Double> = _basePressureHpa.asStateFlow()
+
+    /**
+     * 基準気圧を設定する。0.01 hPa 単位に丸め、設定できる範囲に収める。
+     * 小数の丸め誤差を避けるため、保存は 0.01 hPa 単位の整数で行う。
+     */
+    fun setBasePressureHpa(hpa: Double) {
+        val centi = (hpa * 100).roundToInt()
+            .coerceIn(MIN_BASE_PRESSURE_CENTI, MAX_BASE_PRESSURE_CENTI)
+        _basePressureHpa.value = centi / 100.0
+        prefs.edit { putInt(KEY_BASE_PRESSURE_CENTI, centi) }
+    }
+
+    /** 基準気圧を初期値（標準大気 1013.25 hPa）に戻す */
+    fun resetBasePressureHpa() = setBasePressureHpa(DEFAULT_BASE_PRESSURE_HPA)
+
+    /** 標準大気。meta.json の既定値と同じ */
+    const val DEFAULT_BASE_PRESSURE_HPA = SessionMeta.DEFAULT_BASE_PRESSURE_HPA
+    private const val DEFAULT_BASE_PRESSURE_CENTI = 101325
+    const val MIN_BASE_PRESSURE_HPA = SessionMeta.MIN_BASE_PRESSURE_HPA
+    const val MAX_BASE_PRESSURE_HPA = SessionMeta.MAX_BASE_PRESSURE_HPA
+    private const val MIN_BASE_PRESSURE_CENTI = 80_000
+    private const val MAX_BASE_PRESSURE_CENTI = 110_000
+    private const val KEY_BASE_PRESSURE_CENTI = "base_pressure_centi"
 
     fun setRecordingColor(color: Int) {
         _recordingColor.value = color

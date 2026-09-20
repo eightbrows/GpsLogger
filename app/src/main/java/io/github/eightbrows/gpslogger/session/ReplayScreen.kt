@@ -84,6 +84,9 @@ class ReplaySessionState(val sessionDir: File) {
 
     /** 表示用の測位点（基準気圧を解決済み）。data.track と同じ並び・同じ件数 */
     var trackPoints by mutableStateOf<List<TrackPoint>>(emptyList())
+
+    /** このセッションの meta.json のうるう秒。null ならアプリ全体の設定値を使う */
+    var leapSeconds by mutableStateOf<Int?>(null)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,8 +109,10 @@ fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
     LaunchedEffect(state) {
         if (state.loaded && !isRecordingThis) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) { SessionReader.read(sessionDir) }
+        val meta = loadMeta(sessionDir)
+        state.leapSeconds = meta?.leapSeconds
         // 表示用の点も読み込み時にまとめて作る（再生位置を動かすたびに区間を探さない）
-        state.trackPoints = loaded?.let { buildTrackPoints(sessionDir, it.track) } ?: emptyList()
+        state.trackPoints = loaded?.let { buildTrackPoints(meta, it.track) } ?: emptyList()
         state.data = loaded
         state.loaded = true
     }
@@ -116,7 +121,9 @@ fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
     LaunchedEffect(metaRevision) {
         if (metaRevision == 0) return@LaunchedEffect
         val track = data?.track ?: return@LaunchedEffect
-        state.trackPoints = buildTrackPoints(sessionDir, track)
+        val meta = loadMeta(sessionDir)
+        state.leapSeconds = meta?.leapSeconds
+        state.trackPoints = buildTrackPoints(meta, track)
     }
 
     // 記録情報（meta.json）の編集画面。戻ると再生画面へ（読み込み済みの記録と再生位置は保持）
@@ -205,6 +212,7 @@ fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
                     basePressureHpa = trackPoints.getOrNull(index)?.basePressureHpa
                         ?: BarometerReader.STANDARD_PRESSURE_HPA,
                     trackPoints = trackPoints,
+                    leapSeconds = state.leapSeconds,
                     timeMs = record.epochMs,
                     markerIndex = index,
                     sessionStartMs = track.firstOrNull()?.epochMs ?: 0L,
@@ -373,13 +381,17 @@ private fun StepButton(
     }
 }
 
+/** meta.json を読む（IO スレッド）。無い・壊れていれば null */
+private suspend fun loadMeta(sessionDir: File): SessionMeta? =
+    withContext(Dispatchers.IO) { SessionReader.readMeta(sessionDir) }
+
 /**
  * CSV の記録を表示用の測位点に変換し、各点の基準気圧を meta.json から解決する。
- * meta.json の読み込みと全点の解決は IO スレッドでまとめて行う。
+ * 全点の解決は IO スレッドでまとめて行う。
  */
-private suspend fun buildTrackPoints(sessionDir: File, track: List<TrackRecord>): List<TrackPoint> =
+private suspend fun buildTrackPoints(meta: SessionMeta?, track: List<TrackRecord>): List<TrackPoint> =
     withContext(Dispatchers.IO) {
-        val resolver = BasePressureResolver(SessionReader.readMeta(sessionDir))
+        val resolver = BasePressureResolver(meta)
         track.map {
             TrackPoint(
                 latitude = it.latitude,

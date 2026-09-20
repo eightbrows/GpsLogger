@@ -121,7 +121,9 @@ private fun NumericPage(snapshot: ViewSnapshot) {
     val speedEmphasis by Settings.speedEmphasis.collectAsState()
     val constellationEmphasis by Settings.constellationEmphasis.collectAsState()
     val dopEmphasis by Settings.dopEmphasis.collectAsState()
-    val leapSeconds by Settings.leapSeconds.collectAsState()
+    val appLeapSeconds by Settings.leapSeconds.collectAsState()
+    // 再生中はそのセッションの meta.json の値、記録中や未設定ならアプリ全体の設定値
+    val leapSeconds = snapshot.leapSeconds ?: appLeapSeconds
 
     val hasTime = snapshot.timeMs > 0
     val hasPos = snapshot.latitude != null && snapshot.longitude != null

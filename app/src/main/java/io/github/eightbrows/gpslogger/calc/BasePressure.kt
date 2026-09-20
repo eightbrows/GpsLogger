@@ -9,7 +9,7 @@ import io.github.eightbrows.gpslogger.state.BarometerReader
  * 優先順位:
  *  1. その時刻を含む区間に basePressureHpa があれば、その値
  *  2. 区間に設定が無い・どの区間にも入らない場合は、セッション全体の basePressureHpa
- *  3. meta.json が無い（meta == null）場合は、標準大気 1013.25 hPa
+ *  3. meta.json が無い（meta == null）場合は fallbackHpa（既定は標準大気 1013.25 hPa）
  *
  * 区間の範囲は [start, end + 1秒) とする。meta.json の時刻は秒未満を切り捨てて保存しているため、
  * 区間の最後の1秒に記録した点が end をわずかに超えることがあるから。
@@ -17,10 +17,14 @@ import io.github.eightbrows.gpslogger.state.BarometerReader
  *
  * 区間の時刻は生成時に一度だけミリ秒へ変換するので、点ごとの呼び出しは区間数に比例するだけで済む。
  */
-class BasePressureResolver(meta: SessionMeta?) {
+class BasePressureResolver(
+    meta: SessionMeta?,
+    fallbackHpa: Float = BarometerReader.STANDARD_PRESSURE_HPA
+) {
 
     private val sessionHpa: Float =
-        meta?.basePressureHpa?.let(::usable) ?: BarometerReader.STANDARD_PRESSURE_HPA
+        meta?.basePressureHpa?.let(::usable) ?: usable(fallbackHpa.toDouble())
+        ?: BarometerReader.STANDARD_PRESSURE_HPA
 
     // 時刻が欠けた区間は判定できないので除外する
     private val ranges: List<Range> = meta?.segments.orEmpty().mapNotNull { s ->
@@ -52,5 +56,8 @@ class BasePressureResolver(meta: SessionMeta?) {
 }
 
 /** 1点だけ解決する。多数の点を扱うときは [BasePressureResolver] を使い回すこと */
-fun resolveBasePressureHpa(meta: SessionMeta?, timeMs: Long): Float =
-    BasePressureResolver(meta).at(timeMs)
+fun resolveBasePressureHpa(
+    meta: SessionMeta?,
+    timeMs: Long,
+    fallbackHpa: Float = BarometerReader.STANDARD_PRESSURE_HPA
+): Float = BasePressureResolver(meta, fallbackHpa).at(timeMs)

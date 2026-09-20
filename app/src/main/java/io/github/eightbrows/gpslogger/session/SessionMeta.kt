@@ -20,7 +20,9 @@ data class Segment(
     /** この区間で記録した測位点の数 */
     val points: Int = 0,
     /** 区間ごとの基準気圧（hPa）。null ならセッションの値を使う */
-    val basePressureHpa: Double? = null
+    val basePressureHpa: Double? = null,
+    /** 区間ごとのジオイド高（m）。null ならセッションの値を使う */
+    val geoidOffsetM: Double? = null
 )
 
 /**
@@ -33,6 +35,16 @@ data class SessionMeta(
     val tags: List<String> = emptyList(),
     /** 気圧高度の基準気圧（hPa） */
     val basePressureHpa: Double = DEFAULT_BASE_PRESSURE_HPA,
+    /**
+     * GPX / KMZ の標高換算に使うジオイド高（m）。
+     * null は未設定で、そのときはアプリ全体の設定値を使う（この項目より前に記録したセッション）
+     */
+    val geoidOffsetM: Double? = null,
+    /**
+     * Z-count の算出に使ううるう秒（GPS − UTC、秒）。
+     * null は未設定で、そのときはアプリ全体の設定値を使う。記録中は変わらないので区間別には持たない
+     */
+    val leapSeconds: Int? = null,
     val start: OffsetDateTime? = null,
     val end: OffsetDateTime? = null,
     val pointCount: Int = 0,
@@ -49,6 +61,8 @@ data class SessionMeta(
         put("comment", comment)
         put("tags", JSONArray(tags))
         put("basePressureHpa", number(basePressureHpa))
+        put("geoidOffsetM", geoidOffsetM?.let { number(it) } ?: JSONObject.NULL)
+        put("leapSeconds", leapSeconds ?: JSONObject.NULL)
         put("start", time(start))
         put("end", time(end))
         put("pointCount", pointCount)
@@ -60,6 +74,7 @@ data class SessionMeta(
                     put("end", time(s.end))
                     put("points", s.points)
                     put("basePressureHpa", s.basePressureHpa?.let { number(it) } ?: JSONObject.NULL)
+                    put("geoidOffsetM", s.geoidOffsetM?.let { number(it) } ?: JSONObject.NULL)
                 })
             }
         })
@@ -89,6 +104,23 @@ data class SessionMeta(
         const val SCHEMA_VERSION = 1
         const val DEFAULT_BASE_PRESSURE_HPA = 1013.25
 
+        /** ジオイド高の初期値（m）。日本付近の平均的な値の目安 */
+        const val DEFAULT_GEOID_OFFSET_M = 36.0
+
+        /** ジオイド高として受け付ける範囲（±120 m。地球上のジオイド高はおよそ −107〜+86 m） */
+        const val GEOID_LIMIT_M = 120.0
+
+        /** 基準気圧として受け付ける範囲（hPa） */
+        const val MIN_BASE_PRESSURE_HPA = 800.0
+        const val MAX_BASE_PRESSURE_HPA = 1100.0
+
+        /** うるう秒（GPS − UTC）の初期値。2026年時点で18秒 */
+        const val DEFAULT_LEAP_SECONDS = 18
+
+        /** うるう秒として受け付ける範囲（秒） */
+        const val MIN_LEAP_SECONDS = 0
+        const val MAX_LEAP_SECONDS = 99
+
         private val FORMATTER: DateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
         /**
@@ -104,6 +136,8 @@ data class SessionMeta(
                     (0 until arr.length()).mapNotNull { arr.opt(it) as? String }
                 } ?: d.tags,
                 basePressureHpa = json.doubleOrNull("basePressureHpa") ?: d.basePressureHpa,
+                geoidOffsetM = json.doubleOrNull("geoidOffsetM"),
+                leapSeconds = json.intOrNull("leapSeconds"),
                 start = json.timeOrNull("start"),
                 end = json.timeOrNull("end"),
                 pointCount = json.intOr("pointCount", d.pointCount),
@@ -115,7 +149,8 @@ data class SessionMeta(
                                 start = s.timeOrNull("start"),
                                 end = s.timeOrNull("end"),
                                 points = s.intOr("points", 0),
-                                basePressureHpa = s.doubleOrNull("basePressureHpa")
+                                basePressureHpa = s.doubleOrNull("basePressureHpa"),
+                                geoidOffsetM = s.doubleOrNull("geoidOffsetM")
                             )
                         }
                     }
@@ -152,6 +187,8 @@ data class SessionMeta(
 
         private fun JSONObject.intOr(key: String, def: Int): Int =
             (opt(key) as? Number)?.toInt() ?: def
+
+        private fun JSONObject.intOrNull(key: String): Int? = (opt(key) as? Number)?.toInt()
 
         private fun JSONObject.doubleOrNull(key: String): Double? =
             (opt(key) as? Number)?.toDouble()?.takeIf { it.isFinite() }

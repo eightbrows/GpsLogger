@@ -53,6 +53,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
+import io.github.eightbrows.gpslogger.ui.BasePressureDialog
+import io.github.eightbrows.gpslogger.ui.GeoidOffsetDialog
+import io.github.eightbrows.gpslogger.ui.LeapSecondsDialog
+import io.github.eightbrows.gpslogger.ui.formatGeoid
+import io.github.eightbrows.gpslogger.ui.formatHpa
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.draw.clip
@@ -169,35 +174,77 @@ fun MetaEditScreen(sessionDir: File, onBack: () -> Unit) {
     val path = editingPath
     val base = (state as? MetaState.Loaded)?.meta
     if (path != null && base != null) {
-        val numeric = path != "comment" && path != "tags"
-        MetaEditDialog(
-            path = path,
-            initialText = MetaPaths.editText(base, path),
-            singleLine = path != "comment",
-            keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text,
-            hint = stringResource(hintFor(path)),
-            onDismiss = { editingPath = null },
-            onSave = { input ->
-                // 失敗時はメッセージを返し、ダイアログは閉じない
-                when (val result = MetaPaths.apply(base, path, input)) {
-                    is MetaEditResult.Failure -> failureMessage(resources, result)
-                    is MetaEditResult.Success -> try {
-                        withContext(Dispatchers.IO) {
-                            result.meta.writeTo(sessionDir)
-                            // 履歴一覧のタグ表示に反映させる
-                            SessionTagCache.invalidate(sessionDir)
-                        }
-                        state = MetaState.Loaded(result.meta)
-                        editingPath = null
-                        null
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        resources.getString(R.string.meta_save_failed, e.message ?: e.javaClass.simpleName)
+        /** 入力値を書き戻して保存する。失敗したらメッセージを返す（ダイアログは閉じない） */
+        suspend fun save(input: String): String? =
+            when (val result = MetaPaths.apply(base, path, input)) {
+                is MetaEditResult.Failure -> failureMessage(resources, result)
+                is MetaEditResult.Success -> try {
+                    withContext(Dispatchers.IO) {
+                        result.meta.writeTo(sessionDir)
+                        // 履歴一覧のタグ表示に反映させる
+                        SessionTagCache.invalidate(sessionDir)
                     }
+                    state = MetaState.Loaded(result.meta)
+                    editingPath = null
+                    null
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    resources.getString(R.string.meta_save_failed, e.message ?: e.javaClass.simpleName)
                 }
             }
+
+        // 設定画面と同じ入力ダイアログを使う項目。値の書式は MetaPaths が受け付ける形に揃える
+        val pattern = MetaPaths.pattern(path)
+        val segment = pattern.startsWith("segments[")
+        val unsetNote = stringResource(
+            if (segment) R.string.meta_unset_uses_session else R.string.meta_unset_uses_app
         )
+        val segmentValue = MetaPaths.segmentOf(base, path)
+
+        when (pattern) {
+            "basePressureHpa", "segments[*].basePressureHpa" -> BasePressureDialog(
+                initialHpa = if (segment) segmentValue?.basePressureHpa else base.basePressureHpa,
+                onDismiss = { editingPath = null },
+                onSave = { value ->
+                    scope.launch { save(value?.let(::formatHpa) ?: "") }
+                },
+                // セッション全体の基準気圧は未設定にできない（気圧高度の計算に必ず要る）
+                allowUnset = segment,
+                unsetNote = unsetNote
+            )
+
+            "geoidOffsetM", "segments[*].geoidOffsetM" -> GeoidOffsetDialog(
+                initialM = if (segment) segmentValue?.geoidOffsetM else base.geoidOffsetM,
+                onDismiss = { editingPath = null },
+                onSave = { value ->
+                    scope.launch { save(value?.let(::formatGeoid) ?: "") }
+                },
+                allowUnset = true,
+                unsetNote = unsetNote
+            )
+
+            "leapSeconds" -> LeapSecondsDialog(
+                initial = base.leapSeconds,
+                onDismiss = { editingPath = null },
+                onSave = { value ->
+                    scope.launch { save(value?.toString() ?: "") }
+                },
+                allowUnset = true,
+                unsetNote = unsetNote
+            )
+
+            else -> MetaEditDialog(
+                path = path,
+                initialText = MetaPaths.editText(base, path),
+                singleLine = path != "comment",
+                keyboardType = if (path == "comment" || path == "tags") KeyboardType.Text
+                else KeyboardType.Decimal,
+                hint = stringResource(hintFor(path)),
+                onDismiss = { editingPath = null },
+                onSave = { input -> save(input) }
+            )
+        }
     }
 }
 
@@ -270,6 +317,8 @@ private fun hintFor(path: String): Int = when (MetaPaths.pattern(path)) {
     "comment" -> R.string.meta_hint_comment
     "tags" -> R.string.meta_hint_tags
     "basePressureHpa" -> R.string.meta_hint_base_pressure
+    "geoidOffsetM" -> R.string.meta_hint_geoid
+    "segments[*].geoidOffsetM" -> R.string.meta_hint_segment_geoid
     else -> R.string.meta_hint_segment_pressure
 }
 
@@ -281,6 +330,10 @@ private fun failureMessage(resources: Resources, failure: MetaEditResult.Failure
             resources.getString(R.string.meta_error_pressure_required)
         MetaEditResult.Reason.INVALID_PRESSURE ->
             resources.getString(R.string.meta_error_invalid_pressure)
+        MetaEditResult.Reason.INVALID_GEOID ->
+            resources.getString(R.string.meta_error_invalid_geoid)
+        MetaEditResult.Reason.INVALID_LEAP_SECONDS ->
+            resources.getString(R.string.meta_error_invalid_leap_seconds)
         MetaEditResult.Reason.SEGMENT_NOT_FOUND ->
             resources.getString(R.string.meta_error_segment_not_found, failure.segmentIndex ?: -1)
     }
