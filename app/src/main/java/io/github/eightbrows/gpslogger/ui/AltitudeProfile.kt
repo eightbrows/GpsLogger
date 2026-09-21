@@ -28,10 +28,17 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
@@ -64,18 +71,29 @@ fun AltitudePage(
 
     // 横軸のズームと移動（0.0〜1.0 の表示範囲）
     var zoom by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableFloatStateOf(0f) }  // 表示範囲の左端（0〜1-1/zoom）
+    // 追従OFF時の表示範囲の左端（0〜1-1/zoom）。追従中は followOffset を使う
+    var offset by remember { mutableFloatStateOf(0f) }
+    // 対象点（再生=選択点 / ライブ=最新の点）を横軸の中心に保つ
+    var following by remember { mutableStateOf(true) }
 
-    fun clampOffset() {
-        val maxOffset = (1f - 1f / zoom).coerceAtLeast(0f)
-        offset = offset.coerceIn(0f, maxOffset)
+    fun clamp(value: Float): Float = value.coerceIn(0f, (1f - 1f / zoom).coerceAtLeast(0f))
+
+    // 対象点を中心に置く表示範囲の左端
+    val followOffset = if (points.size < 2) 0f else {
+        val t0 = points.first().timeMs
+        val dt = max((points.last().timeMs - t0).toDouble(), 1.0)
+        val target = points.getOrNull(snapshot.markerIndex ?: (points.size - 1)) ?: points.last()
+        clamp(((target.timeMs - t0) / dt - 0.5 / zoom).toFloat())
     }
+    // ドラッグ中に composition が変わっても最新の値を読めるようにする
+    val currentFollowOffset by rememberUpdatedState(followOffset)
+    val viewOffset = if (following) followOffset else offset
 
     fun applyZoom(factor: Float) {
-        val center = offset + 0.5f / zoom          // 現在の中心
+        // 追従中は中心が対象点に決まるので、倍率だけ変える
+        val center = viewOffset + 0.5f / zoom
         zoom = (zoom * factor).coerceIn(1f, 100f)
-        offset = center - 0.5f / zoom              // 中心を保つ
-        clampOffset()
+        if (!following) offset = clamp(center - 0.5f / zoom)   // 中心を保つ
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -93,22 +111,27 @@ fun AltitudePage(
                 .fillMaxSize()
                 .padding(start = 40.dp, end = 12.dp, top = 12.dp, bottom = 34.dp)
                 .pointerInput(zoom) {
+                    // 倍率1倍のときはページ切り替えの横スワイプに譲るため、移動は受け付けない
                     if (zoom > 1f) {
                         detectHorizontalDragGestures { _, dragAmount ->
-                            offset -= dragAmount / size.width / zoom
-                            clampOffset()
+                            // 手で動かしたら追従を解除し、その瞬間の表示範囲を引き継ぐ
+                            if (following) {
+                                offset = currentFollowOffset
+                                following = false
+                            }
+                            offset = clamp(offset - dragAmount / size.width / zoom)
                         }
                     }
                 }
-                .pointerInput(points, zoom, offset) {
+                .pointerInput(points, zoom, viewOffset) {
                     if (onSelectIndex != null) {
                         detectTapGestures { tap ->
                             // タップX座標から時刻を逆算し、最も近い点を選ぶ
                             val t0All = points.first().timeMs
                             val t1All = points.last().timeMs
                             val dtAll = max((t1All - t0All).toDouble(), 1.0)
-                            val viewStart = t0All + (dtAll * offset).toLong()
-                            val viewEnd = t0All + (dtAll * (offset + 1f / zoom)).toLong()
+                            val viewStart = t0All + (dtAll * viewOffset).toLong()
+                            val viewEnd = t0All + (dtAll * (viewOffset + 1f / zoom)).toLong()
                             val dtView = max((viewEnd - viewStart).toDouble(), 1.0)
 
                             val tappedMs = viewStart + (tap.x / size.width * dtView).toLong()
@@ -129,8 +152,8 @@ fun AltitudePage(
             val dtAll = max((t1All - t0All).toDouble(), 1.0)
 
             // 表示範囲
-            val viewStart = t0All + (dtAll * offset).toLong()
-            val viewEnd = t0All + (dtAll * (offset + 1f / zoom)).toLong()
+            val viewStart = t0All + (dtAll * viewOffset).toLong()
+            val viewEnd = t0All + (dtAll * (viewOffset + 1f / zoom)).toLong()
             val dtView = max((viewEnd - viewStart).toDouble(), 1.0)
 
             // 表示範囲内の点だけで高度レンジを決める（GPS・気圧の両方を含めて1つの縦軸にする）
@@ -297,6 +320,32 @@ fun AltitudePage(
                 onClick = { zoom = 1f; offset = 0f },
                 modifier = Modifier.size(32.dp)
             ) { Text("1x", fontSize = 11.sp) }
+
+            // 追従（塗りつぶし＝追従中、輪郭のみ＝追従OFF。軌跡画面と同じ）
+            if (following) {
+                FilledIconButton(
+                    onClick = { },
+                    modifier = Modifier.size(32.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors()
+                ) {
+                    Icon(
+                        Icons.Filled.LocationOn,
+                        contentDescription = stringResource(R.string.traj_following),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            } else {
+                OutlinedIconButton(
+                    onClick = { following = true },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.LocationOn,
+                        contentDescription = stringResource(R.string.traj_recenter),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }
