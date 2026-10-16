@@ -291,8 +291,13 @@ class LoggerService : Service() {
             gnssStatusCallback,
             Handler(mainLooper)
         )
-        // 気圧も測位と同じ区間だけ購読する
-        BarometerReader.start(this, owner = this)
+        // 気圧も測位と同じ区間だけ購読する。使うのは測位時点の最新値だけなので、
+        // サンプリングは記録間隔（開始時に確定した値）に合わせる
+        BarometerReader.start(
+            this,
+            owner = this,
+            samplingPeriodUs = sessionIntervalSec * 1_000_000
+        )
     }
 
     private fun stopLocationUpdates() {

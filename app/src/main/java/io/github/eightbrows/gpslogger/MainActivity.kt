@@ -54,6 +54,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.settings.SettingsScreen
 import io.github.eightbrows.gpslogger.state.PreviewLocator
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.eightbrows.gpslogger.state.BarometerReader
 import androidx.compose.foundation.isSystemInDarkTheme
 import io.github.eightbrows.gpslogger.settings.ThemeMode
@@ -146,26 +149,53 @@ fun RecordControlScreen() {
 
     val session = currentSession
 
-    // 記録タブ表示中かつ記録していない間はプレビュー測位を動かす
-    androidx.compose.runtime.DisposableEffect(isLogging) {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+    // 記録タブ表示中・記録していない・画面が見えている、の3つがそろったときだけプレビュー測位を動かす。
+    // composition だけに任せると、ホームに戻しても画面を消しても測位が続いてしまう
+    val lifecycleOwner = LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(isLogging, lifecycleOwner) {
+        // 気圧も同じ条件で購読する。記録中はサービスが購読し、
+        // 一時停止中はどちらも購読しない（表示は「—」）
+        fun startIfPossible() {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!isLogging && hasPermission) PreviewLocator.start(context) else PreviewLocator.stop()
 
-        if (!isLogging && hasPermission) {
-            PreviewLocator.start(context)
-        } else {
-            PreviewLocator.stop()
+            // プレビューの測位は1秒ごとなので、気圧もそれに合わせる
+            if (!isLogging) {
+                BarometerReader.start(
+                    context,
+                    owner = PreviewLocator,
+                    samplingPeriodUs = BarometerReader.DEFAULT_PERIOD_US
+                )
+            } else {
+                BarometerReader.stop(owner = PreviewLocator)
+            }
         }
 
-        onDispose { PreviewLocator.stop() }
-    }
+        fun stopAll() {
+            PreviewLocator.stop()
+            BarometerReader.stop(owner = PreviewLocator)
+        }
 
-    // 気圧も PreviewLocator と同じく、記録していない間だけ画面側で購読する。
-    // 記録中はサービスが購読し、一時停止中はどちらも購読しない（表示は「—」）
-    androidx.compose.runtime.DisposableEffect(isLogging) {
-        if (!isLogging) BarometerReader.start(context, owner = PreviewLocator)
-        onDispose { BarometerReader.stop(owner = PreviewLocator) }
+        // すでに表示中なら observer を登録した時点では ON_START が来ないので、ここで判断する
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            startIfPossible()
+        }
+
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> startIfPossible()
+                Lifecycle.Event.ON_STOP -> stopAll()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            stopAll()
+        }
     }
 
     Column(Modifier.fillMaxSize()) {

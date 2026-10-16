@@ -2,6 +2,8 @@ package io.github.eightbrows.gpslogger.state
 
 import android.location.Location
 import io.github.eightbrows.gpslogger.log.LogEvent
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +56,7 @@ object GnssStateHolder {
     }
 
     /** 軌跡用の全測位点（緯度経度のみ・安全上限付き） */
-    private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
+    private val _trackPoints = MutableStateFlow<PersistentList<TrackPoint>>(persistentListOf())
     val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
     fun updateLocation(
@@ -67,14 +69,17 @@ object GnssStateHolder {
 
         val points = _trackPoints.value
         if (points.size < MAX_TRACK_POINTS) {
-            _trackPoints.value = points + TrackPoint(
-                latitude = location.latitude,
-                longitude = location.longitude,
-                altitude = location.altitude,
-                timeMs = location.time,
-                gapBefore = gapBefore,
-                pressureHpa = pressureHpa,
-                basePressureHpa = _basePressureHpa.value
+            // 永続リストなので、点を足しても既存の要素はコピーされない
+            _trackPoints.value = points.add(
+                TrackPoint(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    altitude = location.altitude,
+                    timeMs = location.time,
+                    gapBefore = gapBefore,
+                    pressureHpa = pressureHpa,
+                    basePressureHpa = _basePressureHpa.value
+                )
             )
         }
     }
@@ -107,13 +112,13 @@ object GnssStateHolder {
     fun reset() {
         _snapshot.value = GnssSnapshot()
         _basePressureHpa.value = BarometerReader.STANDARD_PRESSURE_HPA
-        _trackPoints.value = emptyList()
+        _trackPoints.value = persistentListOf()
         _loggingError.value = null
     }
 
     /** 軌跡のみクリア（プレビュー中の使用を想定） */
     fun clearTrackPoints() {
-        _trackPoints.value = emptyList()
+        _trackPoints.value = persistentListOf()
     }
 
     private const val MAX_TRACK_POINTS = 100_000  // 安全上限（1Hzで約27時間）

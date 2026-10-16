@@ -10,7 +10,7 @@ fun versionCodeFrom(name: String): Int {
     return date * 100 + seq
 }
 
-val appVersionName = "20261016-D01"
+val appVersionName = "20261016-D02"
 android {
     namespace = "io.github.eightbrows.gpslogger"
     compileSdk {
@@ -83,6 +83,8 @@ dependencies {
     // アプリ別の表示言語（AppCompatDelegate.setApplicationLocales）
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // 軌跡の点を足すたびに全件コピーしないための永続リスト
+    implementation(libs.kotlinx.collections.immutable)
     testImplementation(libs.junit)
     // Android の org.json は単体テストではスタブなので、JVM 上で動く実装を使う（アプリ本体には入らない）
     testImplementation(libs.json)
