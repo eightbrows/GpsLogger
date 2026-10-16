@@ -77,13 +77,6 @@ class LoggerService : Service() {
     private var segmentStartMs = 0L
     private var segmentPoints = 0
     private var segmentOpen = false
-    private var notificationHandler: Handler? = null
-    private val notificationUpdater = object : Runnable {
-        override fun run() {
-            updateNotification()
-            notificationHandler?.postDelayed(this, 1000L)
-        }
-    }
 
     @Volatile private var latestSats: List<LogEvent.Sat> = emptyList()
 
@@ -228,9 +221,6 @@ class LoggerService : Service() {
 
         try {
             startLocationUpdates()
-            notificationHandler = Handler(mainLooper).also {
-                it.postDelayed(notificationUpdater, 1000L)
-            }
             acquireWakeLockIfEnabled()
             Log.d(TAG, "logging started")
         } catch (e: SecurityException) {
@@ -252,10 +242,10 @@ class LoggerService : Service() {
         stopLocationUpdates()
         logWriter?.flushNow()         // しばらく放置されるのでバッファを確定させる
         releaseWakeLock()
-        latestSats = emptyList()      // 通知に古い衛星数を残さない
+        latestSats = emptyList()      // 再開後の最初のDOPに古い衛星を使わない
         closeSegment(System.currentTimeMillis())
         GnssStateHolder.setPaused(true)
-        updateNotification()
+        notifyState(paused = true)
         Log.d(TAG, "logging paused")
     }
 
@@ -280,7 +270,7 @@ class LoggerService : Service() {
         openSegment(System.currentTimeMillis())
         acquireWakeLockIfEnabled()
         GnssStateHolder.setPaused(false)
-        updateNotification()
+        notifyState(paused = false)
         Log.d(TAG, "logging resumed")
     }
 
@@ -338,13 +328,11 @@ class LoggerService : Service() {
     }
 
     /**
-     * 測位コールバック・通知更新・WakeLock・ライターをまとめて片付ける。
+     * 測位コールバック・WakeLock・ライターをまとめて片付ける。
      * stopLogging() と onDestroy() の共通処理。何度呼んでも安全。
      */
     private fun releaseResources() {
         stopLocationUpdates()
-        notificationHandler?.removeCallbacks(notificationUpdater)
-        notificationHandler = null
         releaseWakeLock()
         // ライターは updatesActive と切り離して必ず閉じる。
         // 一時停止中に停止しても未flush分を取りこぼさない
@@ -444,7 +432,12 @@ class LoggerService : Service() {
             LogWriter.WriteError.CLOSE -> text(R.string.error_save_failed)
         }
 
-    private fun buildNotification(): Notification {
+    /**
+     * 固定内容の通知。経過時間はシステムのクロノメーターに任せ、アプリからは更新しない
+     * （画面OFF中に毎秒作り直さないぶん、電池の消費を抑えられる）。
+     * 内容が変わるのは一時停止・再開のときだけ。
+     */
+    private fun buildNotification(paused: Boolean = false): Notification {
         // タップでアプリに戻る
         val intent = Intent(this, MainActivity::class.java)
             .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -454,26 +447,15 @@ class LoggerService : Service() {
                     PendingIntent.FLAG_IMMUTABLE
         )
 
-        val elapsedSec = if (startTimeMs > 0)
-            (System.currentTimeMillis() - startTimeMs) / 1000 else 0
-        val h = elapsedSec / 3600
-        val m = (elapsedSec % 3600) / 60
-        val s = elapsedSec % 60
-        val elapsed = "%02d:%02d:%02d".format(h, m, s)
-
-        val paused = sessionActive && !updatesActive
-        val usedSats = latestSats.count { it.usedInFix }
-        val fixState = if (usedSats >= 4) "FIX" else "NO FIX"
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(
-                if (paused) text(R.string.notification_title_paused, elapsed)
-                else text(R.string.notification_title_recording, elapsed)
+                if (paused) text(R.string.notification_title_paused)
+                else text(R.string.notification_title_recording)
             )
-            .setContentText(
-                if (paused) text(R.string.notification_text_paused, fixCount)
-                else text(R.string.notification_text_recording, fixState, fixCount, usedSats)
-            )
+            // 記録開始からの経過時間。一時停止中も進み続ける
+            .setUsesChronometer(true)
+            .setWhen(startTimeMs)
+            .setShowWhen(true)
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -481,9 +463,10 @@ class LoggerService : Service() {
             .build()
     }
 
-    private fun updateNotification() {
+    /** 一時停止・再開のときだけ通知を出し直す */
+    private fun notifyState(paused: Boolean) {
         getSystemService(NotificationManager::class.java)
-            .notify(NOTIFICATION_ID, buildNotification())
+            .notify(NOTIFICATION_ID, buildNotification(paused))
     }
 
     private fun createNotificationChannel() {

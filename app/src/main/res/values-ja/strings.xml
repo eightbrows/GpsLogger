@@ -36,10 +36,8 @@
 
     <!-- 通知 -->
     <string name="notification_channel_name">現在位置記録</string>
-    <string name="notification_title_recording">位置記録中  %1$s</string>
-    <string name="notification_title_paused">一時停止中  %1$s</string>
-    <string name="notification_text_recording">%1$s ・ %2$d点 ・ 衛星 %3$d</string>
-    <string name="notification_text_paused">%1$d点 ・ 測位停止中</string>
+    <string name="notification_title_recording">GPS記録中</string>
+    <string name="notification_title_paused">一時停止中</string>
 
     <!-- 記録中のエラー -->
     <string name="error_storage_unavailable">保存先が利用できません</string>

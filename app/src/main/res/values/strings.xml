@@ -32,10 +32,8 @@
 
     <!-- Notification -->
     <string name="notification_channel_name">Location recording</string>
-    <string name="notification_title_recording">Recording  %1$s</string>
-    <string name="notification_title_paused">Paused  %1$s</string>
-    <string name="notification_text_recording">%1$s · %2$d pts · Sats %3$d</string>
-    <string name="notification_text_paused">%1$d pts · Positioning stopped</string>
+    <string name="notification_title_recording">Recording</string>
+    <string name="notification_title_paused">Paused</string>
 
     <!-- Errors while recording -->
     <string name="error_storage_unavailable">Storage is unavailable</string>
