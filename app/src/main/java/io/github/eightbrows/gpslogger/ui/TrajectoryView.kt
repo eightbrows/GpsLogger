@@ -39,7 +39,7 @@ import kotlin.math.max
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eightbrows.gpslogger.settings.CoordFormat
 import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.ui.graphics.Color
@@ -89,8 +89,8 @@ fun TrajectoryPane(
 ) {
     val points = snapshot.trackPoints
 
-    val recordingColor by Settings.recordingColor.collectAsState()
-    val previewColor by Settings.previewColor.collectAsState()
+    val recordingColor by Settings.recordingColor.collectAsStateWithLifecycle()
+    val previewColor by Settings.previewColor.collectAsStateWithLifecycle()
     val lineColor = Color(if (snapshot.isRecording) recordingColor else previewColor)
     // 一時停止で中断した区間の色。背景へ寄せることで明暗どちらのテーマでも沈みすぎない
     val gapColor = lerp(lineColor, MaterialTheme.colorScheme.background, 0.6f)
@@ -100,7 +100,7 @@ fun TrajectoryPane(
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val labelColor = MaterialTheme.colorScheme.outline
 
-    val coordFormat by Settings.coordFormat.collectAsState()
+    val coordFormat by Settings.coordFormat.collectAsStateWithLifecycle()
 
     var zoom by viewport::zoom
     var tx by viewport::tx

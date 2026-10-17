@@ -54,7 +54,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import java.io.BufferedInputStream
 import java.util.zip.ZipInputStream
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
@@ -141,7 +141,7 @@ fun SessionListScreen(onSelect: (File) -> Unit) {
         }
     }
 
-    val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
+    val currentSession by GnssStateHolder.currentSessionDir.collectAsStateWithLifecycle()
 
     fun exitSelectMode() {
         selectMode = false

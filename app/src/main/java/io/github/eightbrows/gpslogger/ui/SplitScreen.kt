@@ -21,7 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import io.github.eightbrows.gpslogger.settings.Settings
 
@@ -39,7 +39,7 @@ fun SplitScreen(
         val minPanePx = with(density) { minPane.toPx() }
 
         // 分割比率（初期50:50）。rememberSaveableで回転・再生成に耐える
-        val savedRatio by Settings.splitRatio.collectAsState()
+        val savedRatio by Settings.splitRatio.collectAsStateWithLifecycle()
         var ratio by remember { mutableFloatStateOf(savedRatio) }
 
         val topHeightPx = availablePx * ratio

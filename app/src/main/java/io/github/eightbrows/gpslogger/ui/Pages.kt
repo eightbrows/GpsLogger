@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.eightbrows.gpslogger.state.ViewSnapshot
 import io.github.eightbrows.gpslogger.state.BarometerReader
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import io.github.eightbrows.gpslogger.settings.CoordFormatter
 import io.github.eightbrows.gpslogger.settings.Settings
@@ -116,12 +116,12 @@ fun BottomPager(
 
 @Composable
 private fun NumericPage(snapshot: ViewSnapshot) {
-    val coordFormat by Settings.coordFormat.collectAsState()
-    val altitudeEmphasis by Settings.altitudeEmphasis.collectAsState()
-    val speedEmphasis by Settings.speedEmphasis.collectAsState()
-    val constellationEmphasis by Settings.constellationEmphasis.collectAsState()
-    val dopEmphasis by Settings.dopEmphasis.collectAsState()
-    val appLeapSeconds by Settings.leapSeconds.collectAsState()
+    val coordFormat by Settings.coordFormat.collectAsStateWithLifecycle()
+    val altitudeEmphasis by Settings.altitudeEmphasis.collectAsStateWithLifecycle()
+    val speedEmphasis by Settings.speedEmphasis.collectAsStateWithLifecycle()
+    val constellationEmphasis by Settings.constellationEmphasis.collectAsStateWithLifecycle()
+    val dopEmphasis by Settings.dopEmphasis.collectAsStateWithLifecycle()
+    val appLeapSeconds by Settings.leapSeconds.collectAsStateWithLifecycle()
     // 再生中はそのセッションの meta.json の値、記録中や未設定ならアプリ全体の設定値
     val leapSeconds = snapshot.leapSeconds ?: appLeapSeconds
 

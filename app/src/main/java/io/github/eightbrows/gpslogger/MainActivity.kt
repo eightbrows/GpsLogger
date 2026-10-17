@@ -26,7 +26,7 @@ import androidx.core.content.ContextCompat
 import io.github.eightbrows.gpslogger.service.LoggerService
 import io.github.eightbrows.gpslogger.ui.theme.GpsLoggerTheme
 
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
@@ -82,7 +82,7 @@ class MainActivity : AppCompatActivity() {
         // システムの「アプリの言語」から変えられた場合にも合わせる
         Settings.syncLanguageMode()
         setContent {
-            val themeMode by Settings.themeMode.collectAsState()
+            val themeMode by Settings.themeMode.collectAsStateWithLifecycle()
             val darkTheme = when (themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
@@ -104,17 +104,17 @@ class MainActivity : AppCompatActivity() {
 @Composable
 fun RecordControlScreen() {
     val context = LocalContext.current
-    val isLogging by GnssStateHolder.isLogging.collectAsState()
-    val isPaused by GnssStateHolder.isPaused.collectAsState()
-    val pressureHpa by BarometerReader.pressureHpa.collectAsState()
-    val basePressureHpa by GnssStateHolder.basePressureHpa.collectAsState()
-    val holderSnapshot by GnssStateHolder.snapshot.collectAsState()
-    val trackPoints by GnssStateHolder.trackPoints.collectAsState()
-    val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
-    val loggingError by GnssStateHolder.loggingError.collectAsState()
+    val isLogging by GnssStateHolder.isLogging.collectAsStateWithLifecycle()
+    val isPaused by GnssStateHolder.isPaused.collectAsStateWithLifecycle()
+    val pressureHpa by BarometerReader.pressureHpa.collectAsStateWithLifecycle()
+    val basePressureHpa by GnssStateHolder.basePressureHpa.collectAsStateWithLifecycle()
+    val holderSnapshot by GnssStateHolder.snapshot.collectAsStateWithLifecycle()
+    val trackPoints by GnssStateHolder.trackPoints.collectAsStateWithLifecycle()
+    val currentSession by GnssStateHolder.currentSessionDir.collectAsStateWithLifecycle()
+    val loggingError by GnssStateHolder.loggingError.collectAsStateWithLifecycle()
 
-    val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsState()
-    val recordingStartMs by GnssStateHolder.recordingStartMs.collectAsState()
+    val lastFixNs by GnssStateHolder.lastFixElapsedNs.collectAsStateWithLifecycle()
+    val recordingStartMs by GnssStateHolder.recordingStartMs.collectAsStateWithLifecycle()
     var showPermissionRequired by remember { mutableStateOf(false) }
 
     // 最後の測位から5秒以内ならFIX中とみなす
@@ -339,7 +339,7 @@ fun AppRoot() {
     var replay by remember { mutableStateOf<ReplaySessionState?>(null) }
 
     val context = LocalContext.current
-    val noticeShown by Settings.permissionNoticeShown.collectAsState()
+    val noticeShown by Settings.permissionNoticeShown.collectAsStateWithLifecycle()
     var showPermissionNotice by remember { mutableStateOf(false) }
 
     // 初回起動時、権限が未取得なら一度だけ案内

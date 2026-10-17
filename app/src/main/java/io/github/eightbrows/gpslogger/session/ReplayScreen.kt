@@ -59,7 +59,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 
 /**
@@ -101,7 +101,7 @@ fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
     var showMetaEditor by remember { mutableStateOf(false) }
     // 編集画面から戻るたびに増やし、基準気圧を解決し直す
     var metaRevision by remember { mutableIntStateOf(0) }
-    val currentSession by GnssStateHolder.currentSessionDir.collectAsState()
+    val currentSession by GnssStateHolder.currentSessionDir.collectAsStateWithLifecycle()
     val isRecordingThis = currentSession?.name == sessionDir.name
 
     // 読み込みはIOスレッドで。読み込み済みなら読み直さない（他のタブから戻ったとき）。

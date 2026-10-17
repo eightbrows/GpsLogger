@@ -53,7 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,10 +78,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 
 @Composable
 fun SettingsScreen() {
-    val intervalSec by Settings.intervalSec.collectAsState()
-    val useWakeLock by Settings.useWakeLock.collectAsState()
-    val coordFormat by Settings.coordFormat.collectAsState()
-    val isLogging by GnssStateHolder.isLogging.collectAsState()
+    val intervalSec by Settings.intervalSec.collectAsStateWithLifecycle()
+    val useWakeLock by Settings.useWakeLock.collectAsStateWithLifecycle()
+    val coordFormat by Settings.coordFormat.collectAsStateWithLifecycle()
+    val isLogging by GnssStateHolder.isLogging.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Column(
@@ -145,10 +145,10 @@ fun SettingsScreen() {
         }
 
         // --- 表示の強調 ---
-        val altitudeEmphasis by Settings.altitudeEmphasis.collectAsState()
-        val speedEmphasis by Settings.speedEmphasis.collectAsState()
-        val constellationEmphasis by Settings.constellationEmphasis.collectAsState()
-        val dopEmphasis by Settings.dopEmphasis.collectAsState()
+        val altitudeEmphasis by Settings.altitudeEmphasis.collectAsStateWithLifecycle()
+        val speedEmphasis by Settings.speedEmphasis.collectAsStateWithLifecycle()
+        val constellationEmphasis by Settings.constellationEmphasis.collectAsStateWithLifecycle()
+        val dopEmphasis by Settings.dopEmphasis.collectAsStateWithLifecycle()
         SectionLabel(stringResource(R.string.settings_emphasis), top = 14.dp)
         SubText(stringResource(R.string.settings_emphasis_note))
         EmphasisRow(
@@ -228,7 +228,7 @@ fun SettingsScreen() {
         Divider14()
 
         // --- テーマ ---
-        val themeMode by Settings.themeMode.collectAsState()
+        val themeMode by Settings.themeMode.collectAsStateWithLifecycle()
         SectionLabel(stringResource(R.string.settings_theme), top = 0.dp)
         SubText(stringResource(R.string.settings_theme_note))
         SegmentedControl(
@@ -247,7 +247,7 @@ fun SettingsScreen() {
         Divider14()
 
         // --- 言語 ---
-        val languageMode by Settings.languageMode.collectAsState()
+        val languageMode by Settings.languageMode.collectAsStateWithLifecycle()
         SectionLabel(stringResource(R.string.settings_language), top = 0.dp)
         SubText(stringResource(R.string.settings_language_note))
         SegmentedControl(
@@ -419,7 +419,7 @@ private fun <T> MultiSegmentedControl(
 /** うるう秒: ラベル＋補足を左、+/-・数値・↺ を右に1行で収める。↺ で初期値（18）に戻す */
 @Composable
 private fun LeapSecondsRow() {
-    val leapSeconds by Settings.leapSeconds.collectAsState()
+    val leapSeconds by Settings.leapSeconds.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
 
     StepperRow(
@@ -453,7 +453,7 @@ private fun LeapSecondsRow() {
  */
 @Composable
 private fun GeoidHeightRow() {
-    val geoidHeight by Settings.geoidHeightM.collectAsState()
+    val geoidHeight by Settings.geoidHeightM.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
 
     StepperRow(
@@ -488,7 +488,7 @@ private fun GeoidHeightRow() {
  */
 @Composable
 private fun BasePressureRow() {
-    val basePressure by Settings.basePressureHpa.collectAsState()
+    val basePressure by Settings.basePressureHpa.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
 
     StepperRow(
@@ -616,8 +616,8 @@ private enum class TrackColorRole(@param:StringRes val labelRes: Int) {
 
 @Composable
 private fun TrackColorRow() {
-    val recordingColor by Settings.recordingColor.collectAsState()
-    val previewColor by Settings.previewColor.collectAsState()
+    val recordingColor by Settings.recordingColor.collectAsStateWithLifecycle()
+    val previewColor by Settings.previewColor.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<TrackColorRole?>(null) }
 
     fun selectedColor(role: TrackColorRole) =
