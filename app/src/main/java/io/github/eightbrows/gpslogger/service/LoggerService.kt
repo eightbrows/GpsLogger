@@ -291,12 +291,12 @@ class LoggerService : Service() {
             gnssStatusCallback,
             Handler(mainLooper)
         )
-        // 気圧も測位と同じ区間だけ購読する。使うのは測位時点の最新値だけなので、
-        // サンプリングは記録間隔（開始時に確定した値）に合わせる
+        // 気圧も測位と同じ区間だけ購読する。記録間隔が長くても、測位点に載る気圧が
+        // 1秒より古くならないよう、サンプリングは1秒ごとにする
         BarometerReader.start(
             this,
             owner = this,
-            samplingPeriodUs = sessionIntervalSec * 1_000_000
+            samplingPeriodUs = BarometerReader.DEFAULT_PERIOD_US
         )
     }
 

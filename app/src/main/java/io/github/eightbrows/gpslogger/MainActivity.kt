@@ -178,11 +178,8 @@ fun RecordControlScreen() {
             BarometerReader.stop(owner = PreviewLocator)
         }
 
-        // すでに表示中なら observer を登録した時点では ON_START が来ないので、ここで判断する
-        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            startIfPossible()
-        }
-
+        // addObserver は、登録した時点の状態までのイベント（表示中なら ON_START）を
+        // 新しい observer にも送る。ここで直接開始すると二重に呼ぶことになるので、開始は observer に任せる
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> startIfPossible()
