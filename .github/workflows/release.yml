@@ -37,6 +37,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
+      - name: Remove keystore
+        if: always()
+        run: rm -f "${{ github.workspace }}/keystore.jks"
+
       - name: Rename APK
         run: |
           VERSION="${GITHUB_REF_NAME}"
