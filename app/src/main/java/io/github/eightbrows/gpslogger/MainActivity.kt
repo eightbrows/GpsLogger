@@ -125,13 +125,16 @@ fun RecordControlScreen() {
             (android.os.SystemClock.elapsedRealtimeNanos() - lastFixNs) < 5_000_000_000L
 
     // コンパスは無効・3 秒より古い値を「無し」にする。偏角は現在位置があれば求める
-    val compass = Compass.usable(compassReading, android.os.SystemClock.elapsedRealtimeNanos())
+    val compassNowNs = android.os.SystemClock.elapsedRealtimeNanos()
+    val compass = Compass.usable(compassReading, compassNowNs)
     val location = holderSnapshot.location
-    val declinationDeg = remember(location) {
+    val magModel = remember(location) {
         location?.let {
-            CompassReader.declinationDeg(it.latitude, it.longitude, it.altitude, it.time)
+            CompassReader.model(it.latitude, it.longitude, it.altitude, it.time)
         }
     }
+    // 磁場の強さ・伏角のモデル値とのずれ（方位の信頼性の指標）。寝かせていても求まる
+    val magIndex = Compass.magIndex(Compass.magMeasurement(compassReading, compassNowNs), magModel)
 
     // ライブの状態を表示用スナップショットに詰め替える
     val viewSnapshot = ViewSnapshot(
@@ -149,7 +152,9 @@ fun RecordControlScreen() {
         basePressureHpa = basePressureHpa,
         compassAzimuthDeg = compass?.azimuthDeg,
         compassAccuracyDeg = compass?.accuracyDeg,
-        magneticDeclinationDeg = declinationDeg,
+        magneticDeclinationDeg = magModel?.declinationDeg,
+        magFieldRatio = magIndex?.ratio,
+        magInclinationDiffDeg = magIndex?.inclinationDiffDeg,
         trackPoints = trackPoints,
         timeMs = holderSnapshot.location?.time ?: 0L,
         markerIndex = null,

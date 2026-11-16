@@ -205,13 +205,18 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             else DASH
         )
         // 端末の背面が向いている方位。上の「方位」（GPS の進行方向）とは別物
+        // 測った磁場がモデル値から外れているときだけ、方位の後ろに注記を付ける（方位の値は消さない）
+        val disturbedNote = stringResource(R.string.num_compass_disturbed)
         NumRow(
             stringResource(R.string.num_compass),
             Compass.format(
                 snapshot.compassAzimuthDeg,
                 snapshot.compassAccuracyDeg,
                 snapshot.magneticDeclinationDeg,
-                compassNorth
+                compassNorth,
+                note = disturbedNote.takeIf {
+                    Compass.isDisturbed(snapshot.magFieldRatio, snapshot.magInclinationDiffDeg)
+                }
             )
         )
 

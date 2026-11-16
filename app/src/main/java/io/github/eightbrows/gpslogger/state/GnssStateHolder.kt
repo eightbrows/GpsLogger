@@ -169,6 +169,10 @@ data class ViewSnapshot(
     val compassAccuracyDeg: Float? = null,
     /** その地点の偏角（度、東偏がプラス）。真北表示に使う。無ければ null */
     val magneticDeclinationDeg: Float? = null,
+    /** 測った磁場の強さ ÷ モデル値（コンパスの信頼性の指標）。無ければ null */
+    val magFieldRatio: Float? = null,
+    /** 測った伏角 − モデル値（度）。無ければ null */
+    val magInclinationDiffDeg: Float? = null,
     val trackPoints: List<TrackPoint> = emptyList(),
     /**
      * Z-count の算出に使ううるう秒（GPS − UTC、秒）。

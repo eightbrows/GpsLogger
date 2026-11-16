@@ -18,7 +18,13 @@ sealed interface LogEvent {
         /** コンパスの推定誤差（度）。取れなければ null */
         val compassAccuracyDeg: Float? = null,
         /** この測位点の偏角（度、東偏がプラス）。方位角が無ければ null */
-        val magneticDeclinationDeg: Float? = null
+        val magneticDeclinationDeg: Float? = null,
+        /** 測った磁場の強さ ÷ モデル値。値が無ければ null */
+        val magFieldRatio: Float? = null,
+        /** 測った伏角 − モデル値（度）。値が無ければ null */
+        val magInclinationDiffDeg: Float? = null,
+        /** 磁気センサーが報告している状態（0〜3）。無ければ null。記録だけに使う */
+        val magSensorStatus: Int? = null
     ) : LogEvent
 
     data class Sats(

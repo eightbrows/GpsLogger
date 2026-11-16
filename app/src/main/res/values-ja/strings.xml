@@ -73,6 +73,7 @@
     <string name="num_bearing">方位</string>
     <string name="num_bearing_value">%1$.1f deg (精度+/- %2$.1f)</string>
     <string name="num_compass">コンパス</string>
+    <string name="num_compass_disturbed">磁気の乱れ</string>
     <string name="num_satellites">衛星数</string>
     <string name="num_group1">種別1</string>
     <string name="num_group2">種別2</string>
@@ -195,7 +196,7 @@
     <string name="settings_geoid_height_note">GPX・KMZの高度を「楕円体高 − ジオイド高」で出力。0で楕円体高を出力（初期値 36.0、日本付近の目安）</string>
     <string name="settings_geoid_height_hint">%1$s〜%2$s m、0.1 m 単位（初期値 %3$s）</string>
     <string name="settings_compass_north">コンパスの基準</string>
-    <string name="settings_compass_north_note">数値ページのコンパス表示に使います。記録には磁北の値と偏角を保存します</string>
+    <string name="settings_compass_north_note">数値ページのコンパス表示に使います。記録には磁北の値と偏角を保存します。方位がずれるときは、端末を8の字に振って校正してください。車内では車体の影響で狂うことがあります</string>
     <string name="settings_compass_true">真北</string>
     <string name="settings_compass_magnetic">磁北</string>
     <string name="settings_theme">テーマ</string>

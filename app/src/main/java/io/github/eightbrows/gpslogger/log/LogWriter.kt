@@ -157,7 +157,11 @@ class LogWriter(
         val hasCompass = e.compassAzimuthDeg != null
         sb.append(Compass.csvAzimuth(e.compassAzimuthDeg)).append(',')
         sb.append(if (hasCompass) Compass.csv(e.compassAccuracyDeg) else "").append(',')
-        sb.append(if (hasCompass) Compass.csv(e.magneticDeclinationDeg) else "")
+        sb.append(if (hasCompass) Compass.csv(e.magneticDeclinationDeg) else "").append(',')
+        // コンパスの信頼性の指標。方位角の有無（端末の傾き）には関係なく書く
+        sb.append(Compass.csvRatio(e.magFieldRatio)).append(',')
+        sb.append(Compass.csv(e.magInclinationDiffDeg)).append(',')
+        sb.append(Compass.csvStatus(e.magSensorStatus))
         w.write(sb.toString())
         w.newLine()
     }
@@ -202,15 +206,16 @@ class LogWriter(
         private const val FLUSH_INTERVAL_MS = 30_000L   // 30秒
 
         /**
-         * track.csv v2（22列）＋コンパスの 3 列（計 25 列）。v1（19列）とは互換性なし。
-         * コンパスの列は末尾に足しただけで、既存の列の順序・書式は変えていない
+         * track.csv v2（22列）＋コンパスの 3 列＋磁場の指標の 2 列＋磁気センサーの状態（計 28 列）。v1（19列）とは互換性なし。
+         * コンパス・磁場の列は末尾に足しただけで、既存の列の順序・書式は変えていない
          */
         private const val TRACK_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
                     "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
                     "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock," +
                     "gap_before,interval_sec,pressure_hpa," +
-                    "compass_azimuth_deg,compass_accuracy_deg,magnetic_declination_deg"
+                    "compass_azimuth_deg,compass_accuracy_deg,magnetic_declination_deg," +
+                    "mag_field_ratio,mag_inclination_diff_deg,mag_sensor_status"
 
         private const val SATS_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,epoch_id,constellation,svid," +

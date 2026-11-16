@@ -22,6 +22,8 @@ class TrackCsvCompatTest {
     private val v2bHeader = "$v1Header,gap_before,interval_sec,pressure_hpa"
     private val compassHeader =
         "$v2bHeader,compass_azimuth_deg,compass_accuracy_deg,magnetic_declination_deg"
+    private val magHeader = "$compassHeader,mag_field_ratio,mag_inclination_diff_deg"
+    private val statusHeader = "$magHeader,mag_sensor_status"
 
     /** 19 列の共通部分 */
     private fun base(i: Int, dop: Boolean = true): String = listOf(
@@ -89,6 +91,79 @@ class TrackCsvCompatTest {
         assertNull(track[1].compassAzimuthDeg)
         assertNull(track[1].compassAccuracyDeg)
         assertNull(track[1].magneticDeclinationDeg)
+    }
+
+    @Test
+    fun magIndex_27columns_readsMagColumns() {
+        val (track, skipped) = parse(
+            magHeader,
+            base(0) + ",false,1,1009.5,131.2,12.0,-7.9,1.03,-3.2",
+            base(1) + ",false,1,1009.5,,,,0.72,14.5",   // 寝かせている（方位角なし）が指標はある
+            base(2) + ",false,1,1009.5,131.2,,-7.9,,"   // 磁気センサー無し
+        )
+        assertEquals(0, skipped)
+        assertEquals(1.03f, track[0].magFieldRatio!!, 0f)
+        assertEquals(-3.2f, track[0].magInclinationDiffDeg!!, 0f)
+        assertEquals(131.2f, track[0].compassAzimuthDeg!!, 0f)
+        assertNull(track[1].compassAzimuthDeg)
+        assertEquals(0.72f, track[1].magFieldRatio!!, 0f)
+        assertEquals(14.5f, track[1].magInclinationDiffDeg!!, 0f)
+        assertNull(track[2].magFieldRatio)
+        assertNull(track[2].magInclinationDiffDeg)
+    }
+
+    @Test
+    fun magSensorStatus_28columns_readsStatus() {
+        val (track, skipped) = parse(
+            statusHeader,
+            base(0) + ",false,1,1009.5,131.2,12.0,-7.9,1.03,-3.2,3",
+            base(1) + ",false,1,1009.5,131.2,12.0,-7.9,,,2",    // 時刻の合う組が無く指標は空欄
+            base(2) + ",false,1,1009.5,131.2,,-7.9,,,"          // 磁気センサー無し
+        )
+        assertEquals(0, skipped)
+        assertEquals(3, track[0].magSensorStatus)
+        assertEquals(1.03f, track[0].magFieldRatio!!, 0f)
+        assertEquals(2, track[1].magSensorStatus)
+        assertNull(track[1].magFieldRatio)
+        assertNull(track[2].magSensorStatus)
+    }
+
+    @Test
+    fun filesWithoutStatusColumn_readWithNullStatus() {
+        // 状態の列が無いファイル（v1・v2・25 列・27 列）も読める
+        val rows = listOf(
+            v1Header to base(0),
+            v2bHeader to base(0) + ",false,4,1009.5",
+            compassHeader to base(0) + ",false,4,1009.5,131.2,12.0,-7.9",
+            magHeader to base(0) + ",false,4,1009.5,131.2,12.0,-7.9,1.03,-3.2"
+        )
+        for ((header, row) in rows) {
+            val (track, skipped) = parse(header, row)
+            assertEquals(0, skipped)
+            assertEquals(1, track.size)
+            assertNull(track[0].magSensorStatus)
+        }
+        // 27 列のファイルは、指標の 2 列を今までどおり読める
+        val (track, _) = parse(magHeader, base(0) + ",false,4,1009.5,131.2,12.0,-7.9,1.03,-3.2")
+        assertEquals(1.03f, track[0].magFieldRatio!!, 0f)
+        assertEquals(-3.2f, track[0].magInclinationDiffDeg!!, 0f)
+    }
+
+    @Test
+    fun filesWithoutMagColumns_readWithNullMagIndex() {
+        // 磁場の指標の 2 列が無い古いファイル（v1・v2・コンパス付き 25 列）も読める
+        val rows = listOf(
+            v1Header to base(0),
+            v2bHeader to base(0) + ",false,4,1009.5",
+            compassHeader to base(0) + ",false,4,1009.5,131.2,12.0,-7.9"
+        )
+        for ((header, row) in rows) {
+            val (track, skipped) = parse(header, row)
+            assertEquals(0, skipped)
+            assertEquals(1, track.size)
+            assertNull(track[0].magFieldRatio)
+            assertNull(track[0].magInclinationDiffDeg)
+        }
     }
 
     @Test

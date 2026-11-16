@@ -214,6 +214,8 @@ fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
                     compassAzimuthDeg = record.compassAzimuthDeg,
                     compassAccuracyDeg = record.compassAccuracyDeg,
                     magneticDeclinationDeg = record.magneticDeclinationDeg,
+                    magFieldRatio = record.magFieldRatio,
+                    magInclinationDiffDeg = record.magInclinationDiffDeg,
                     trackPoints = trackPoints,
                     leapSeconds = state.leapSeconds,
                     timeMs = record.epochMs,

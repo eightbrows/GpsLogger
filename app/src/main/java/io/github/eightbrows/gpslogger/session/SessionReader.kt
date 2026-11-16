@@ -31,7 +31,13 @@ data class TrackRecord(
     /** コンパスの推定誤差（度）。空欄・列が無ければ null */
     val compassAccuracyDeg: Float? = null,
     /** この測位点の偏角（度、東偏がプラス）。空欄・列が無ければ null */
-    val magneticDeclinationDeg: Float? = null
+    val magneticDeclinationDeg: Float? = null,
+    /** 測った磁場の強さ ÷ モデル値。空欄・列が無ければ null */
+    val magFieldRatio: Float? = null,
+    /** 測った伏角 − モデル値（度）。空欄・列が無ければ null */
+    val magInclinationDiffDeg: Float? = null,
+    /** 磁気センサーが報告していた状態（0〜3）。空欄・列が無ければ null */
+    val magSensorStatus: Int? = null
 )
 
 /** sats.csv の1エポック分 */
@@ -148,7 +154,9 @@ object SessionReader {
      *  - v1（19 列）: …, tdop, is_mock
      *  - v2（22 列）: + gap_before, interval_sec, pressure_hpa
      *  - コンパス付き（25 列）: + compass_azimuth_deg, compass_accuracy_deg, magnetic_declination_deg
-     * 無い列は既定値（gap_before=false, interval_sec=0, pressure_hpa=null、コンパスは null など）。
+     *  - 磁場の指標付き（27 列）: + mag_field_ratio, mag_inclination_diff_deg
+     *  - 磁気センサーの状態付き（28 列）: + mag_sensor_status
+     * 無い列は既定値（gap_before=false, interval_sec=0, pressure_hpa=null、コンパス・磁場は null など）。
      * 必須は epoch_ms・latitude・longitude で、これが読めない行は読み飛ばして数える。空行は数えない。
      */
     fun parseTrack(lines: Sequence<String>): Pair<List<TrackRecord>, Int> {
@@ -181,7 +189,10 @@ object SessionReader {
                     pressureHpa = s("pressure_hpa")?.toFloatOrNull(),
                     compassAzimuthDeg = s("compass_azimuth_deg")?.toFloatOrNull(),
                     compassAccuracyDeg = s("compass_accuracy_deg")?.toFloatOrNull(),
-                    magneticDeclinationDeg = s("magnetic_declination_deg")?.toFloatOrNull()
+                    magneticDeclinationDeg = s("magnetic_declination_deg")?.toFloatOrNull(),
+                    magFieldRatio = s("mag_field_ratio")?.toFloatOrNull(),
+                    magInclinationDiffDeg = s("mag_inclination_diff_deg")?.toFloatOrNull(),
+                    magSensorStatus = s("mag_sensor_status")?.toIntOrNull()
                 )
             } catch (e: Exception) {
                 null

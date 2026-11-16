@@ -21,6 +21,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.github.eightbrows.gpslogger.MainActivity
+import io.github.eightbrows.gpslogger.calc.Compass
 import io.github.eightbrows.gpslogger.calc.DopCalculator
 import io.github.eightbrows.gpslogger.log.LogEvent
 import io.github.eightbrows.gpslogger.log.LogWriter
@@ -90,7 +91,18 @@ class LoggerService : Service() {
         // 測位が来た時点の最新値。CSVと軌跡に同じ値を積む（未取得なら null）
         val pressureHpa = BarometerReader.pressureHpa.value
         // コンパスも同じく最新値。無効・3 秒より古い値は null（CSV では空欄）
-        val compass = CompassReader.current()
+        val compassNowNs = SystemClock.elapsedRealtimeNanos()
+        val compassReading = CompassReader.reading.value
+        val compass = Compass.usable(compassReading, compassNowNs)
+        // 磁場の強さ・伏角は、端末を寝かせていて方位角が無いときも使える
+        val magnetic = Compass.magMeasurement(compassReading, compassNowNs)
+        // モデル値はどちらかがあるときだけ求める（偏角・強さ・伏角を 1 回で）
+        val magModel = if (compass != null || magnetic != null) {
+            CompassReader.model(
+                location.latitude, location.longitude, location.altitude, location.time
+            )
+        } else null
+        val magIndex = Compass.magIndex(magnetic, magModel)
         logWriter?.submit(
             LogEvent.Fix(
                 location = location,
@@ -100,12 +112,11 @@ class LoggerService : Service() {
                 pressureHpa = pressureHpa,
                 compassAzimuthDeg = compass?.azimuthDeg,
                 compassAccuracyDeg = compass?.accuracyDeg,
-                // 偏角は方位角があるときだけ求める（磁北の生値と組にして保存する）
-                magneticDeclinationDeg = compass?.let {
-                    CompassReader.declinationDeg(
-                        location.latitude, location.longitude, location.altitude, location.time
-                    )
-                }
+                // 偏角は方位角があるときだけ書く（磁北の生値と組にして保存する）
+                magneticDeclinationDeg = compass?.let { magModel?.declinationDeg },
+                magFieldRatio = magIndex?.ratio,
+                magInclinationDiffDeg = magIndex?.inclinationDiffDeg,
+                magSensorStatus = Compass.magSensorStatus(compassReading, compassNowNs)
             )
         )
         GnssStateHolder.updateLocation(location, gapBefore, pressureHpa)

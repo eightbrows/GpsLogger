@@ -69,6 +69,7 @@
     <string name="num_bearing">Bearing</string>
     <string name="num_bearing_value">%1$.1f deg (acc. +/- %2$.1f)</string>
     <string name="num_compass">Compass</string>
+    <string name="num_compass_disturbed">mag. disturbed</string>
     <string name="num_satellites">Satellites</string>
     <string name="num_group1">Group 1</string>
     <string name="num_group2">Group 2</string>
@@ -191,7 +192,7 @@
     <string name="settings_geoid_height_note">GPX/KMZ altitude = ellipsoidal height − geoid offset. 0 outputs ellipsoidal height (default: 36.0, typical for Japan)</string>
     <string name="settings_geoid_height_hint">%1$s to %2$s m, in 0.1 m steps (default %3$s)</string>
     <string name="settings_compass_north">Compass reference</string>
-    <string name="settings_compass_north_note">Used for the compass on the numeric page. Recordings keep the magnetic value and declination.</string>
+    <string name="settings_compass_north_note">Used for the compass on the numeric page. Recordings keep the magnetic value and declination. If the heading is off, calibrate by moving the phone in a figure-8. Inside a car, the vehicle body may disturb it.</string>
     <string name="settings_compass_true">True north</string>
     <string name="settings_compass_magnetic">Magnetic north</string>
     <string name="settings_theme">Theme</string>
