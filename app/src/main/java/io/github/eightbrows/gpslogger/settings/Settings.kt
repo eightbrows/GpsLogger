@@ -17,6 +17,9 @@ enum class CoordFormat { DECIMAL, DMS }
 /** テーマの選択 */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** 数値ページのコンパス表示の基準。記録には影響しない（記録は常に磁北の値と偏角） */
+enum class CompassNorth { TRUE_NORTH, MAGNETIC_NORTH }
+
 /** 数値ページの高度の単位（表示順） */
 enum class AltitudeUnit(val symbol: String) { M("m"), FT("ft") }
 
@@ -86,6 +89,10 @@ object Settings {
         _languageMode.value = runCatching {
             LanguageMode.valueOf(prefs.getString(KEY_LANGUAGE_MODE, LanguageMode.SYSTEM.name)!!)
         }.getOrDefault(LanguageMode.SYSTEM)
+
+        _compassNorth.value = runCatching {
+            CompassNorth.valueOf(prefs.getString(KEY_COMPASS_NORTH, CompassNorth.TRUE_NORTH.name)!!)
+        }.getOrDefault(CompassNorth.TRUE_NORTH)
 
         _altitudeEmphasis.value = readUnitSet(KEY_ALTITUDE_EMPHASIS, AltitudeUnit.entries)
         _speedEmphasis.value = readUnitSet(KEY_SPEED_EMPHASIS, SpeedUnit.entries)
@@ -333,6 +340,18 @@ object Settings {
     }
 
     private const val KEY_LANGUAGE_MODE = "language_mode"
+
+    // ---- コンパスの基準（数値ページの表示だけに使う。記録には影響しない） ----
+
+    private val _compassNorth = MutableStateFlow(CompassNorth.TRUE_NORTH)
+    val compassNorth: StateFlow<CompassNorth> = _compassNorth.asStateFlow()
+
+    fun setCompassNorth(north: CompassNorth) {
+        _compassNorth.value = north
+        prefs.edit { putString(KEY_COMPASS_NORTH, north.name) }
+    }
+
+    private const val KEY_COMPASS_NORTH = "compass_north"
 }
 
 /** 軌跡色の1色分（パレット表示用に色名を持つ） */

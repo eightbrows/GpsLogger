@@ -2,6 +2,7 @@ package io.github.eightbrows.gpslogger.log
 
 import android.location.GnssStatus
 import android.util.Log
+import io.github.eightbrows.gpslogger.calc.Compass
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -151,7 +152,12 @@ class LogWriter(
 
         sb.append(e.gapBefore).append(',')
         sb.append(e.intervalSec).append(',')
-        sb.append(e.pressureHpa?.toString() ?: "")
+        sb.append(e.pressureHpa?.toString() ?: "").append(',')
+        // コンパス。方位角が無いときは 3 列とも空欄
+        val hasCompass = e.compassAzimuthDeg != null
+        sb.append(Compass.csvAzimuth(e.compassAzimuthDeg)).append(',')
+        sb.append(if (hasCompass) Compass.csv(e.compassAccuracyDeg) else "").append(',')
+        sb.append(if (hasCompass) Compass.csv(e.magneticDeclinationDeg) else "")
         w.write(sb.toString())
         w.newLine()
     }
@@ -195,12 +201,16 @@ class LogWriter(
         private const val BUFFER_SIZE = 128 * 1024      // 128KB
         private const val FLUSH_INTERVAL_MS = 30_000L   // 30秒
 
-        /** track.csv v2（22列）。v1（19列）とは互換性なし */
+        /**
+         * track.csv v2（22列）＋コンパスの 3 列（計 25 列）。v1（19列）とは互換性なし。
+         * コンパスの列は末尾に足しただけで、既存の列の順序・書式は変えていない
+         */
         private const val TRACK_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
                     "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
                     "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock," +
-                    "gap_before,interval_sec,pressure_hpa"
+                    "gap_before,interval_sec,pressure_hpa," +
+                    "compass_azimuth_deg,compass_accuracy_deg,magnetic_declination_deg"
 
         private const val SATS_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,epoch_id,constellation,svid," +

@@ -12,7 +12,13 @@ sealed interface LogEvent {
         /** 記録時の設定間隔（秒）。0は未設定 */
         val intervalSec: Int = 0,
         /** 気圧センサーの生値（hPa）。未取得は null */
-        val pressureHpa: Float? = null
+        val pressureHpa: Float? = null,
+        /** コンパス（端末の背面の方位、磁北基準 0〜360）。無効・古い値・センサー無しは null */
+        val compassAzimuthDeg: Float? = null,
+        /** コンパスの推定誤差（度）。取れなければ null */
+        val compassAccuracyDeg: Float? = null,
+        /** この測位点の偏角（度、東偏がプラス）。方位角が無ければ null */
+        val magneticDeclinationDeg: Float? = null
     ) : LogEvent
 
     data class Sats(

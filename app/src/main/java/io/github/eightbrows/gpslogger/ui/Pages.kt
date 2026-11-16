@@ -48,6 +48,7 @@ import io.github.eightbrows.gpslogger.settings.Settings
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import io.github.eightbrows.gpslogger.calc.GpsTime
+import io.github.eightbrows.gpslogger.calc.Compass
 import androidx.compose.ui.graphics.Color
 import io.github.eightbrows.gpslogger.log.CONSTELLATION_IRNSS
 import io.github.eightbrows.gpslogger.log.LogEvent
@@ -121,6 +122,7 @@ private fun NumericPage(snapshot: ViewSnapshot) {
     val speedEmphasis by Settings.speedEmphasis.collectAsStateWithLifecycle()
     val constellationEmphasis by Settings.constellationEmphasis.collectAsStateWithLifecycle()
     val dopEmphasis by Settings.dopEmphasis.collectAsStateWithLifecycle()
+    val compassNorth by Settings.compassNorth.collectAsStateWithLifecycle()
     val appLeapSeconds by Settings.leapSeconds.collectAsStateWithLifecycle()
     // 再生中はそのセッションの meta.json の値、記録中や未設定ならアプリ全体の設定値
     val leapSeconds = snapshot.leapSeconds ?: appLeapSeconds
@@ -201,6 +203,16 @@ private fun NumericPage(snapshot: ViewSnapshot) {
             stringResource(R.string.num_bearing),
             if (hasPos) stringResource(R.string.num_bearing_value, snapshot.bearing, snapshot.bearingAccuracy)
             else DASH
+        )
+        // 端末の背面が向いている方位。上の「方位」（GPS の進行方向）とは別物
+        NumRow(
+            stringResource(R.string.num_compass),
+            Compass.format(
+                snapshot.compassAzimuthDeg,
+                snapshot.compassAccuracyDeg,
+                snapshot.magneticDeclinationDeg,
+                compassNorth
+            )
         )
 
         NumDivider()

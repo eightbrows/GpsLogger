@@ -58,6 +58,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.eightbrows.gpslogger.state.BarometerReader
+import io.github.eightbrows.gpslogger.state.CompassReader
+import io.github.eightbrows.gpslogger.calc.Compass
 import androidx.compose.foundation.isSystemInDarkTheme
 import io.github.eightbrows.gpslogger.settings.ThemeMode
 import androidx.compose.foundation.background
@@ -108,6 +110,7 @@ fun RecordControlScreen() {
     val isPaused by GnssStateHolder.isPaused.collectAsStateWithLifecycle()
     val pressureHpa by BarometerReader.pressureHpa.collectAsStateWithLifecycle()
     val basePressureHpa by GnssStateHolder.basePressureHpa.collectAsStateWithLifecycle()
+    val compassReading by CompassReader.reading.collectAsStateWithLifecycle()
     val holderSnapshot by GnssStateHolder.snapshot.collectAsStateWithLifecycle()
     val trackPoints by GnssStateHolder.trackPoints.collectAsStateWithLifecycle()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsStateWithLifecycle()
@@ -120,6 +123,15 @@ fun RecordControlScreen() {
     // 最後の測位から5秒以内ならFIX中とみなす
     val hasFix = lastFixNs > 0 &&
             (android.os.SystemClock.elapsedRealtimeNanos() - lastFixNs) < 5_000_000_000L
+
+    // コンパスは無効・3 秒より古い値を「無し」にする。偏角は現在位置があれば求める
+    val compass = Compass.usable(compassReading, android.os.SystemClock.elapsedRealtimeNanos())
+    val location = holderSnapshot.location
+    val declinationDeg = remember(location) {
+        location?.let {
+            CompassReader.declinationDeg(it.latitude, it.longitude, it.altitude, it.time)
+        }
+    }
 
     // ライブの状態を表示用スナップショットに詰め替える
     val viewSnapshot = ViewSnapshot(
@@ -135,6 +147,9 @@ fun RecordControlScreen() {
         dop = holderSnapshot.dop,
         pressureHpa = pressureHpa,
         basePressureHpa = basePressureHpa,
+        compassAzimuthDeg = compass?.azimuthDeg,
+        compassAccuracyDeg = compass?.accuracyDeg,
+        magneticDeclinationDeg = declinationDeg,
         trackPoints = trackPoints,
         timeMs = holderSnapshot.location?.time ?: 0L,
         markerIndex = null,
@@ -153,7 +168,7 @@ fun RecordControlScreen() {
     // composition だけに任せると、ホームに戻しても画面を消しても測位が続いてしまう
     val lifecycleOwner = LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(isLogging, lifecycleOwner) {
-        // 気圧も同じ条件で購読する。記録中はサービスが購読し、
+        // 気圧・コンパスも同じ条件で購読する。記録中はサービスが購読し、
         // 一時停止中はどちらも購読しない（表示は「—」）
         fun startIfPossible() {
             val hasPermission = ContextCompat.checkSelfPermission(
@@ -168,14 +183,21 @@ fun RecordControlScreen() {
                     owner = PreviewLocator,
                     samplingPeriodUs = BarometerReader.DEFAULT_PERIOD_US
                 )
+                CompassReader.start(
+                    context,
+                    owner = PreviewLocator,
+                    samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
+                )
             } else {
                 BarometerReader.stop(owner = PreviewLocator)
+                CompassReader.stop(owner = PreviewLocator)
             }
         }
 
         fun stopAll() {
             PreviewLocator.stop()
             BarometerReader.stop(owner = PreviewLocator)
+            CompassReader.stop(owner = PreviewLocator)
         }
 
         // addObserver は、登録した時点の状態までのイベント（表示中なら ON_START）を

@@ -27,6 +27,7 @@ import io.github.eightbrows.gpslogger.log.LogWriter
 import io.github.eightbrows.gpslogger.settings.Settings
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import io.github.eightbrows.gpslogger.state.BarometerReader
+import io.github.eightbrows.gpslogger.state.CompassReader
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,13 +89,23 @@ class LoggerService : Service() {
         pendingGapBefore = false
         // 測位が来た時点の最新値。CSVと軌跡に同じ値を積む（未取得なら null）
         val pressureHpa = BarometerReader.pressureHpa.value
+        // コンパスも同じく最新値。無効・3 秒より古い値は null（CSV では空欄）
+        val compass = CompassReader.current()
         logWriter?.submit(
             LogEvent.Fix(
                 location = location,
                 dop = dop,
                 gapBefore = gapBefore,
                 intervalSec = sessionIntervalSec,
-                pressureHpa = pressureHpa
+                pressureHpa = pressureHpa,
+                compassAzimuthDeg = compass?.azimuthDeg,
+                compassAccuracyDeg = compass?.accuracyDeg,
+                // 偏角は方位角があるときだけ求める（磁北の生値と組にして保存する）
+                magneticDeclinationDeg = compass?.let {
+                    CompassReader.declinationDeg(
+                        location.latitude, location.longitude, location.altitude, location.time
+                    )
+                }
             )
         )
         GnssStateHolder.updateLocation(location, gapBefore, pressureHpa)
@@ -298,6 +309,12 @@ class LoggerService : Service() {
             owner = this,
             samplingPeriodUs = BarometerReader.DEFAULT_PERIOD_US
         )
+        // コンパスも気圧と同じ区間・同じ周期で購読する
+        CompassReader.start(
+            this,
+            owner = this,
+            samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
+        )
     }
 
     private fun stopLocationUpdates() {
@@ -305,6 +322,7 @@ class LoggerService : Service() {
         locationManager.removeUpdates(locationListener)
         locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
         BarometerReader.stop(owner = this)
+        CompassReader.stop(owner = this)
         updatesActive = false
     }
 

@@ -225,6 +225,22 @@ fun SettingsScreen() {
         // --- ジオイド高（GPX / KMZ の標高換算） ---
         GeoidHeightRow()
 
+        // --- コンパスの基準（数値ページの表示だけに使う） ---
+        val compassNorth by Settings.compassNorth.collectAsStateWithLifecycle()
+        SectionLabel(stringResource(R.string.settings_compass_north), top = 14.dp)
+        SubText(stringResource(R.string.settings_compass_north_note))
+        SegmentedControl(
+            options = CompassNorth.entries,
+            selected = compassNorth,
+            label = {
+                stringResource(
+                    if (it == CompassNorth.TRUE_NORTH) R.string.settings_compass_true
+                    else R.string.settings_compass_magnetic
+                )
+            },
+            onSelect = { Settings.setCompassNorth(it) }
+        )
+
         Divider14()
 
         // --- テーマ ---

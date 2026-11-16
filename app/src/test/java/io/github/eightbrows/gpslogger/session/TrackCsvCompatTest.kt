@@ -11,6 +11,7 @@ import org.junit.Test
  * 旧形式・現行形式の track.csv を読めることを確かめる。
  *  - v1（19 列）: …, tdop, is_mock
  *  - v2（22 列）: + gap_before, interval_sec, pressure_hpa
+ *  - コンパス付き（25 列）: + compass_azimuth_deg, compass_accuracy_deg, magnetic_declination_deg
  */
 class TrackCsvCompatTest {
 
@@ -19,6 +20,8 @@ class TrackCsvCompatTest {
             "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
             "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock"
     private val v2bHeader = "$v1Header,gap_before,interval_sec,pressure_hpa"
+    private val compassHeader =
+        "$v2bHeader,compass_azimuth_deg,compass_accuracy_deg,magnetic_declination_deg"
 
     /** 19 列の共通部分 */
     private fun base(i: Int, dop: Boolean = true): String = listOf(
@@ -69,6 +72,36 @@ class TrackCsvCompatTest {
         assertEquals(4, track[0].intervalSec)
         assertTrue(track[1].gapBefore)
         assertNull(track[1].pressureHpa)
+    }
+
+    @Test
+    fun compass_25columns_readsCompassColumns() {
+        val (track, skipped) = parse(
+            compassHeader,
+            base(0) + ",false,1,1009.5,131.2,12.0,-7.9",
+            base(1) + ",false,1,1009.5,,,"          // 寝かせている・センサー無し
+        )
+        assertEquals(0, skipped)
+        assertEquals(131.2f, track[0].compassAzimuthDeg!!, 0f)
+        assertEquals(12.0f, track[0].compassAccuracyDeg!!, 0f)
+        assertEquals(-7.9f, track[0].magneticDeclinationDeg!!, 0f)
+        assertEquals(1009.5f, track[0].pressureHpa!!, 0f)
+        assertNull(track[1].compassAzimuthDeg)
+        assertNull(track[1].compassAccuracyDeg)
+        assertNull(track[1].magneticDeclinationDeg)
+    }
+
+    @Test
+    fun filesWithoutCompassColumns_readWithNullCompass() {
+        // コンパスの 3 列が無い古いファイル（v1・v2）も読める
+        for ((header, row) in listOf(v1Header to base(0), v2bHeader to base(0) + ",false,4,1009.5")) {
+            val (track, skipped) = parse(header, row)
+            assertEquals(0, skipped)
+            assertEquals(1, track.size)
+            assertNull(track[0].compassAzimuthDeg)
+            assertNull(track[0].compassAccuracyDeg)
+            assertNull(track[0].magneticDeclinationDeg)
+        }
     }
 
     @Test

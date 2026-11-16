@@ -211,6 +211,9 @@ fun ReplayScreen(state: ReplaySessionState, onBack: () -> Unit) {
                     pressureHpa = record.pressureHpa,
                     basePressureHpa = trackPoints.getOrNull(index)?.basePressureHpa
                         ?: BarometerReader.STANDARD_PRESSURE_HPA,
+                    compassAzimuthDeg = record.compassAzimuthDeg,
+                    compassAccuracyDeg = record.compassAccuracyDeg,
+                    magneticDeclinationDeg = record.magneticDeclinationDeg,
                     trackPoints = trackPoints,
                     leapSeconds = state.leapSeconds,
                     timeMs = record.epochMs,

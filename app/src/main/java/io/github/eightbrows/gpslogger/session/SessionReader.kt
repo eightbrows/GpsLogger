@@ -25,7 +25,13 @@ data class TrackRecord(
     /** 記録時の設定間隔（秒）。読めなければ0 */
     val intervalSec: Int,
     /** 気圧センサーの生値（hPa）。空欄なら null */
-    val pressureHpa: Float?
+    val pressureHpa: Float?,
+    /** コンパス（端末の背面の方位、磁北基準 0〜360）。空欄・列が無ければ null */
+    val compassAzimuthDeg: Float? = null,
+    /** コンパスの推定誤差（度）。空欄・列が無ければ null */
+    val compassAccuracyDeg: Float? = null,
+    /** この測位点の偏角（度、東偏がプラス）。空欄・列が無ければ null */
+    val magneticDeclinationDeg: Float? = null
 )
 
 /** sats.csv の1エポック分 */
@@ -141,7 +147,8 @@ object SessionReader {
      * 列は番号ではなくヘッダーの列名で引くので、旧形式も読める。
      *  - v1（19 列）: …, tdop, is_mock
      *  - v2（22 列）: + gap_before, interval_sec, pressure_hpa
-     * 無い列は既定値（gap_before=false, interval_sec=0, pressure_hpa=null など）。
+     *  - コンパス付き（25 列）: + compass_azimuth_deg, compass_accuracy_deg, magnetic_declination_deg
+     * 無い列は既定値（gap_before=false, interval_sec=0, pressure_hpa=null、コンパスは null など）。
      * 必須は epoch_ms・latitude・longitude で、これが読めない行は読み飛ばして数える。空行は数えない。
      */
     fun parseTrack(lines: Sequence<String>): Pair<List<TrackRecord>, Int> {
@@ -171,7 +178,10 @@ object SessionReader {
                     dop = parseDop(::s),
                     gapBefore = s("gap_before")?.toBoolean() ?: false,
                     intervalSec = s("interval_sec")?.toIntOrNull() ?: 0,
-                    pressureHpa = s("pressure_hpa")?.toFloatOrNull()
+                    pressureHpa = s("pressure_hpa")?.toFloatOrNull(),
+                    compassAzimuthDeg = s("compass_azimuth_deg")?.toFloatOrNull(),
+                    compassAccuracyDeg = s("compass_accuracy_deg")?.toFloatOrNull(),
+                    magneticDeclinationDeg = s("magnetic_declination_deg")?.toFloatOrNull()
                 )
             } catch (e: Exception) {
                 null

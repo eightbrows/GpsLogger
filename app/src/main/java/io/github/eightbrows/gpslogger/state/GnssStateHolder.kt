@@ -163,6 +163,12 @@ data class ViewSnapshot(
     val pressureHpa: Float? = null,
     /** pressureHpa から高度を計算するときの基準気圧（hPa） */
     val basePressureHpa: Float = BarometerReader.STANDARD_PRESSURE_HPA,
+    /** コンパス（端末の背面の方位、磁北基準 0〜360）。無ければ null */
+    val compassAzimuthDeg: Float? = null,
+    /** コンパスの推定誤差（度）。無ければ null */
+    val compassAccuracyDeg: Float? = null,
+    /** その地点の偏角（度、東偏がプラス）。真北表示に使う。無ければ null */
+    val magneticDeclinationDeg: Float? = null,
     val trackPoints: List<TrackPoint> = emptyList(),
     /**
      * Z-count の算出に使ううるう秒（GPS − UTC、秒）。
