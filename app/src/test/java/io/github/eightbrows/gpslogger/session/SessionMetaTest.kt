@@ -39,6 +39,7 @@ class SessionMetaTest {
             )
         ),
         useWakeLock = true,
+        compassEnabled = true,
         deviceModel = "Pixel 8",
         osVersion = "16",
         appVersion = "20260913-R01"
@@ -126,6 +127,19 @@ class SessionMetaTest {
     }
 
     @Test
+    fun compassEnabled_isWrittenAndReadBack() {
+        assertEquals(true, SessionMeta(compassEnabled = true).toJson().getBoolean("compassEnabled"))
+        assertEquals(false, SessionMeta(compassEnabled = false).toJson().getBoolean("compassEnabled"))
+        assertEquals(true, SessionMeta.parse("""{"compassEnabled": true}""")!!.compassEnabled)
+    }
+
+    @Test
+    fun compassEnabled_missingOrBroken_isFalse() {
+        assertEquals(false, SessionMeta.parse("""{"useWakeLock": true}""")!!.compassEnabled)
+        assertEquals(false, SessionMeta.parse("""{"compassEnabled": "yes"}""")!!.compassEnabled)
+    }
+
+    @Test
     fun parse_invalidJson_returnsNull() {
         assertNull(SessionMeta.parse(""))
         assertNull(SessionMeta.parse("{ broken"))
@@ -155,7 +169,7 @@ class SessionMetaTest {
             "segments[0].basePressureHpa", "segments[0].geoidOffsetM",
             "segments[1].start", "segments[1].end", "segments[1].points",
             "segments[1].basePressureHpa", "segments[1].geoidOffsetM",
-            "useWakeLock", "deviceModel", "osVersion", "appVersion"
+            "useWakeLock", "compassEnabled", "deviceModel", "osVersion", "appVersion"
         )
         assertEquals(expected, MetaPaths.flatten(sample).map { it.path })
     }
@@ -172,6 +186,7 @@ class SessionMetaTest {
         assertEquals("1011.2", values["segments[1].basePressureHpa"])
         assertEquals("7200", values["segments[0].points"])
         assertEquals("true", values["useWakeLock"])
+        assertEquals("true", values["compassEnabled"])
     }
 
     @Test
@@ -220,7 +235,7 @@ class SessionMetaTest {
             "xsegments[0].basePressureHpa",
             "segments[0].basePressureHpaX",
             "start", "end", "pointCount", "distanceM", "schemaVersion",
-            "useWakeLock", "deviceModel", "osVersion", "appVersion", ""
+            "useWakeLock", "compassEnabled", "deviceModel", "osVersion", "appVersion", ""
         ).forEach { assertFalse(it, MetaPaths.isEditable(it)) }
     }
 

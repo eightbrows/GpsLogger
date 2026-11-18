@@ -1,6 +1,7 @@
 package io.github.eightbrows.gpslogger.log
 
 import android.location.Location
+import io.github.eightbrows.gpslogger.calc.CompassRecord
 import io.github.eightbrows.gpslogger.calc.Dop
 
 sealed interface LogEvent {
@@ -13,18 +14,8 @@ sealed interface LogEvent {
         val intervalSec: Int = 0,
         /** 気圧センサーの生値（hPa）。未取得は null */
         val pressureHpa: Float? = null,
-        /** コンパス（端末の背面の方位、磁北基準 0〜360）。無効・古い値・センサー無しは null */
-        val compassAzimuthDeg: Float? = null,
-        /** コンパスの推定誤差（度）。取れなければ null */
-        val compassAccuracyDeg: Float? = null,
-        /** この測位点の偏角（度、東偏がプラス）。方位角が無ければ null */
-        val magneticDeclinationDeg: Float? = null,
-        /** 測った磁場の強さ ÷ モデル値。値が無ければ null */
-        val magFieldRatio: Float? = null,
-        /** 測った伏角 − モデル値（度）。値が無ければ null */
-        val magInclinationDiffDeg: Float? = null,
-        /** 磁気センサーが報告している状態（0〜3）。無ければ null。記録だけに使う */
-        val magSensorStatus: Int? = null
+        /** コンパス関連の 6 列の値。コンパスがオフの記録ではすべて空欄 */
+        val compass: CompassRecord = CompassRecord.EMPTY
     ) : LogEvent
 
     data class Sats(

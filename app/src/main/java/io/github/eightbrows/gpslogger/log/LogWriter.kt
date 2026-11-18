@@ -153,15 +153,8 @@ class LogWriter(
         sb.append(e.gapBefore).append(',')
         sb.append(e.intervalSec).append(',')
         sb.append(e.pressureHpa?.toString() ?: "").append(',')
-        // コンパス。方位角が無いときは 3 列とも空欄
-        val hasCompass = e.compassAzimuthDeg != null
-        sb.append(Compass.csvAzimuth(e.compassAzimuthDeg)).append(',')
-        sb.append(if (hasCompass) Compass.csv(e.compassAccuracyDeg) else "").append(',')
-        sb.append(if (hasCompass) Compass.csv(e.magneticDeclinationDeg) else "").append(',')
-        // コンパスの信頼性の指標。方位角の有無（端末の傾き）には関係なく書く
-        sb.append(Compass.csvRatio(e.magFieldRatio)).append(',')
-        sb.append(Compass.csv(e.magInclinationDiffDeg)).append(',')
-        sb.append(Compass.csvStatus(e.magSensorStatus))
+        // コンパス関連の 6 列。コンパスがオフの記録でも列は残し、値を空欄にする
+        sb.append(Compass.csvColumns(e.compass))
         w.write(sb.toString())
         w.newLine()
     }
@@ -207,9 +200,10 @@ class LogWriter(
 
         /**
          * track.csv v2（22列）＋コンパスの 3 列＋磁場の指標の 2 列＋磁気センサーの状態（計 28 列）。v1（19列）とは互換性なし。
-         * コンパス・磁場の列は末尾に足しただけで、既存の列の順序・書式は変えていない
+         * コンパス・磁場の列は末尾に足しただけで、既存の列の順序・書式は変えていない。
+         * コンパスの設定によらず同じヘッダーを書く
          */
-        private const val TRACK_HEADER =
+        internal const val TRACK_HEADER =
             "utc_iso8601,epoch_ms,elapsed_realtime_ns,provider,latitude,longitude," +
                     "altitude_ellipsoid_m,horizontal_acc_m,vertical_acc_m,speed_mps,speed_acc_mps," +
                     "bearing_deg,bearing_acc_deg,gdop,pdop,hdop,vdop,tdop,is_mock," +

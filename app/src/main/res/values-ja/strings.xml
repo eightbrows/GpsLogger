@@ -195,8 +195,10 @@
     <string name="settings_geoid_height">ジオイド高（標高換算, m）</string>
     <string name="settings_geoid_height_note">GPX・KMZの高度を「楕円体高 − ジオイド高」で出力。0で楕円体高を出力（初期値 36.0、日本付近の目安）</string>
     <string name="settings_geoid_height_hint">%1$s〜%2$s m、0.1 m 単位（初期値 %3$s）</string>
+    <string name="settings_compass_enabled">コンパス（試験機能）</string>
+    <string name="settings_compass_enabled_note">端末の向きと磁場の指標を記録します。車内では向きによって15度前後ずれることがあり、注記が無くても正確とは限りません。方位がずれるときは、端末を8の字に振って校正してください</string>
     <string name="settings_compass_north">コンパスの基準</string>
-    <string name="settings_compass_north_note">数値ページのコンパス表示に使います。記録には磁北の値と偏角を保存します。方位がずれるときは、端末を8の字に振って校正してください。車内では車体の影響で狂うことがあります</string>
+    <string name="settings_compass_north_note">数値ページのコンパス表示に使います。記録には磁北の値と偏角を保存します</string>
     <string name="settings_compass_true">真北</string>
     <string name="settings_compass_magnetic">磁北</string>
     <string name="settings_theme">テーマ</string>

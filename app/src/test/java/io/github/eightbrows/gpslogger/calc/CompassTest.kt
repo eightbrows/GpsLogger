@@ -224,12 +224,18 @@ class CompassTest {
         assertEquals(false, Compass.isDisturbed(Compass.MAG_RATIO_MAX, 0f))
         assertEquals(false, Compass.isDisturbed(1f, 0f))
         assertEquals(true, Compass.isDisturbed(0.79f, 0f))
-        assertEquals(true, Compass.isDisturbed(1.21f, 0f))
+        assertEquals(true, Compass.isDisturbed(1.31f, 0f))
+        // 走行データの解析から決めた範囲: 比 0.8〜1.3
+        assertEquals(0.8f, Compass.MAG_RATIO_MIN, 0f)
+        assertEquals(1.3f, Compass.MAG_RATIO_MAX, 0f)
+        assertEquals(false, Compass.isDisturbed(1.21f, 0f))
     }
 
     @Test
     fun isDisturbed_inclinationBoundaries() {
         val limit = Compass.MAG_INCLINATION_DIFF_MAX_DEG
+        assertEquals(15f, limit, 0f)
+        assertEquals(false, Compass.isDisturbed(1f, 10.1f))
         assertEquals(false, Compass.isDisturbed(1f, limit))
         assertEquals(false, Compass.isDisturbed(1f, -limit))
         assertEquals(true, Compass.isDisturbed(1f, limit + 0.1f))

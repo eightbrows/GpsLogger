@@ -82,6 +82,7 @@ object MetaPaths {
             rows += "$p.geoidOffsetM" to s.geoidOffsetM?.let(::number)
         }
         rows += "useWakeLock" to meta.useWakeLock.toString()
+        rows += "compassEnabled" to meta.compassEnabled.toString()
         rows += "deviceModel" to meta.deviceModel
         rows += "osVersion" to meta.osVersion
         rows += "appVersion" to meta.appVersion

@@ -46,6 +46,109 @@ data class MagIndex(
 )
 
 /**
+ * track.csv のコンパス関連 6 列に書く値。無い値は null（CSV では空欄）。
+ * コンパスがオフの記録では [EMPTY] を使う
+ */
+data class CompassRecord(
+    /** 端末の背面の方位（磁北基準 0〜360）。無効・古い値・センサー無しは null */
+    val azimuthDeg: Float? = null,
+    /** 推定誤差（度）。取れなければ null */
+    val accuracyDeg: Float? = null,
+    /** この測位点の偏角（度、東偏がプラス）。方位角が無ければ null */
+    val declinationDeg: Float? = null,
+    /** 測った磁場の強さ ÷ モデル値。値が無ければ null */
+    val fieldRatio: Float? = null,
+    /** 測った伏角 − モデル値（度）。値が無ければ null */
+    val inclinationDiffDeg: Float? = null,
+    /** 磁気センサーが報告している状態（0〜3）。無ければ null。記録だけに使う */
+    val sensorStatus: Int? = null
+) {
+    companion object {
+        val EMPTY = CompassRecord()
+    }
+}
+
+/**
+ * センサーから届いた最新の値を持ち、記録用と画面用に渡し分ける。
+ *  - 記録用 [latest]: 間引く前の最新の方位角と、時刻の合う組で測った最新の磁場の指標
+ *  - 画面用: [onRotation] の戻り値。[onRotation] に渡した間隔まで間引く
+ */
+class CompassSamples {
+    private var azimuthDeg: Float? = null
+    private var accuracyDeg: Float? = null
+
+    /** 最新の方位の取得時刻。未取得なら 0 */
+    private var rotationNs = 0L
+    private var lastPublishedNs = 0L
+
+    private var magnetic: MagMeasurement? = null
+    private var magneticNs = 0L
+    private var magneticStatus: Int? = null
+
+    /**
+     * 回転ベクトルから求めた値を控える。前回の公開から [minIntervalNs] 以上たっていれば
+     * 画面に出す値を返し、まだなら null を返す
+     */
+    fun onRotation(
+        azimuthDeg: Float?,
+        accuracyDeg: Float?,
+        nowNs: Long,
+        minIntervalNs: Long
+    ): CompassReading? {
+        this.azimuthDeg = azimuthDeg
+        this.accuracyDeg = accuracyDeg
+        rotationNs = nowNs
+        if (nowNs - lastPublishedNs < minIntervalNs) return null
+        lastPublishedNs = nowNs
+        return latest()
+    }
+
+    /** 時刻の合う組で測れたときだけ、最新の測定値として控える */
+    fun onMagnetic(measurement: MagMeasurement?, nowNs: Long) {
+        if (measurement == null) return
+        magnetic = measurement
+        magneticNs = nowNs
+    }
+
+    fun onMagneticStatus(status: Int) {
+        magneticStatus = status
+    }
+
+    /** センサーが「信頼できない」と知らせてきたら、次の値を待たずに方位角を無効にする */
+    fun clearAzimuth() {
+        azimuthDeg = null
+    }
+
+    /**
+     * 間引く前の最新の値。方位が一度も届いていなければ null。
+     * 時刻の合う組が取れていない間は、磁場の指標を測った時刻ごと持ち越す
+     * （3 秒より古くなれば、使う側で「無し」になる）
+     */
+    fun latest(): CompassReading? {
+        if (rotationNs == 0L) return null
+        return CompassReading(
+            azimuthDeg = azimuthDeg,
+            accuracyDeg = accuracyDeg,
+            elapsedRealtimeNs = rotationNs,
+            magStrengthUt = magnetic?.strengthUt,
+            magInclinationDeg = magnetic?.inclinationDeg,
+            magElapsedRealtimeNs = magneticNs,
+            magSensorStatus = magneticStatus
+        )
+    }
+
+    fun reset() {
+        azimuthDeg = null
+        accuracyDeg = null
+        rotationNs = 0L
+        lastPublishedNs = 0L
+        magnetic = null
+        magneticNs = 0L
+        magneticStatus = null
+    }
+}
+
+/**
  * 磁場と鉛直上向き（回転行列の 3 行目）を、センサーのイベント時刻が近いものどうしで組にする。
  * 2 つのセンサーは別々のタイミングで届くので、時刻がずれた組で伏角を計算しないためのもの。
  *
@@ -123,14 +226,14 @@ object Compass {
     /** 磁場と回転行列のイベント時刻の差がこれ以内の組だけで、強さ・伏角を計算する（100 ms） */
     const val MAG_PAIR_MAX_DIFF_NS = 100_000_000L
 
-    // ---- 「磁気の乱れ」の判定のしきい値（仮の値。実測に合わせて見直す） ----
+    // ---- 「磁気の乱れ」の判定のしきい値（走行データの解析から決めた値） ----
 
     /** 測った強さ ÷ モデルの強さ がこの範囲（両端を含む）なら正常 */
     const val MAG_RATIO_MIN = 0.8f
-    const val MAG_RATIO_MAX = 1.2f
+    const val MAG_RATIO_MAX = 1.3f
 
     /** 伏角のずれの絶対値がこれ以下（度）なら正常 */
-    const val MAG_INCLINATION_DIFF_MAX_DEG = 10f
+    const val MAG_INCLINATION_DIFF_MAX_DEG = 15f
 
     /** 角度を 0 以上 360 未満に収める（負の値・360 以上にも対応） */
     fun normalizeDeg(deg: Float): Float {
@@ -205,6 +308,35 @@ object Compass {
     }
 
     /**
+     * 測位点に記録する値を決める。コンパスがオフの記録は [enabled] = false で、すべて空欄。
+     * [reading] は間引く前の最新の値（[CompassSamples.latest]）。3 秒より古い値は使わない。
+     * [model] は方位角か磁場の測定値があるときだけ呼ぶ
+     */
+    fun recordValues(
+        enabled: Boolean,
+        reading: CompassReading?,
+        nowElapsedNs: Long,
+        model: () -> MagModel
+    ): CompassRecord {
+        if (!enabled) return CompassRecord.EMPTY
+        val compass = usable(reading, nowElapsedNs)
+        // 磁場の強さ・伏角は、端末を寝かせていて方位角が無いときも使える
+        val magnetic = magMeasurement(reading, nowElapsedNs)
+        // モデル値はどちらかがあるときだけ求める（偏角・強さ・伏角を 1 回で）
+        val magModel = if (compass != null || magnetic != null) model() else null
+        val index = magIndex(magnetic, magModel)
+        return CompassRecord(
+            azimuthDeg = compass?.azimuthDeg,
+            accuracyDeg = compass?.accuracyDeg,
+            // 偏角は方位角があるときだけ書く（磁北の生値と組にして保存する）
+            declinationDeg = compass?.let { magModel?.declinationDeg },
+            fieldRatio = index?.ratio,
+            inclinationDiffDeg = index?.inclinationDiffDeg,
+            sensorStatus = magSensorStatus(reading, nowElapsedNs)
+        )
+    }
+
+    /**
      * 「磁気の乱れ」か。正常は [MAG_RATIO_MIN] ≤ ratio ≤ [MAG_RATIO_MAX] かつ
      * |inclDiff| ≤ [MAG_INCLINATION_DIFF_MAX_DEG]。指標の値が無いときは false（注記しない）。
      */
@@ -258,6 +390,22 @@ object Compass {
         if (magneticDeg == null) return ""
         val text = csv(normalizeDeg(magneticDeg))
         return if (text == "360.0") "0.0" else text
+    }
+
+    /**
+     * track.csv のコンパス関連 6 列（カンマ区切り、前後のカンマは含まない）。
+     * 方位角が無いときは先頭 3 列が空欄。磁場の指標は端末の傾きに関係なく書く
+     */
+    fun csvColumns(record: CompassRecord): String {
+        val hasAzimuth = record.azimuthDeg != null
+        return listOf(
+            csvAzimuth(record.azimuthDeg),
+            if (hasAzimuth) csv(record.accuracyDeg) else "",
+            if (hasAzimuth) csv(record.declinationDeg) else "",
+            csvRatio(record.fieldRatio),
+            csv(record.inclinationDiffDeg),
+            csvStatus(record.sensorStatus)
+        ).joinToString(",")
     }
 
     const val NONE = "—"

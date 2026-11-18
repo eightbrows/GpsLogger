@@ -10,7 +10,7 @@ import android.os.SystemClock
 import android.util.Log
 import io.github.eightbrows.gpslogger.calc.Compass
 import io.github.eightbrows.gpslogger.calc.CompassReading
-import io.github.eightbrows.gpslogger.calc.MagMeasurement
+import io.github.eightbrows.gpslogger.calc.CompassSamples
 import io.github.eightbrows.gpslogger.calc.MagModel
 import io.github.eightbrows.gpslogger.calc.MagPairer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +28,7 @@ import kotlin.math.cos
  * 磁場の強さと伏角を最新値に載せる（モデル値と比べて、方位の信頼性の指標にする）。
  * 磁場と回転行列はイベント時刻の近い組だけで計算するため、磁場は 100 ms ごとに受け取る
  * （公開は方位と同じ周期に間引く）。
+ * 画面には間引いた [reading]、記録には間引く前の [latestForRecording] を使う。
  * こちらは端末の傾きに関係なく測る。磁気センサーが無ければ購読せず、値は null。
  *
  * 作りは BarometerReader と同じ。記録中はサービス、記録していないときは画面が購読する。
@@ -50,18 +51,11 @@ object CompassReader {
     /** センサーが「信頼できない」と知らせてきている間は方位角を出さない */
     private var unreliable = false
 
-    /** 最後に採用した値の取得時刻（間引き用）。未取得なら 0 */
-    private var lastAcceptedNs = 0L
-
     /** 磁場と回転行列を、イベント時刻の近いものどうしで組にする */
     private val pairer = MagPairer()
 
-    /** 時刻の合う組で測った最新の強さ・伏角と、その取得時刻。未取得なら null・0 */
-    private var pairedMagnetic: MagMeasurement? = null
-    private var pairedNs = 0L
-
-    /** 磁気センサーが報告している状態（0〜3 など）。未取得なら null */
-    private var magneticStatus: Int? = null
+    /** 届いた最新の値（方位角・磁場の指標・磁気センサーの状態） */
+    private val samples = CompassSamples()
 
     private val _reading = MutableStateFlow<CompassReading?>(null)
 
@@ -70,6 +64,12 @@ object CompassReader {
      * 使うときは [Compass.usable]・[Compass.magMeasurement] で 3 秒より古い値を落とすこと。
      */
     val reading: StateFlow<CompassReading?> = _reading.asStateFlow()
+
+    /**
+     * 記録に使う、間引く前の最新の値。測位が届いたときに呼ぶ（メインスレッド）。
+     * [reading] と同じく古い値も入ったままなので、[Compass.recordValues] で判定すること
+     */
+    fun latestForRecording(): CompassReading? = samples.latest()
 
     private val rotation = FloatArray(9)
     private val remapped = FloatArray(9)
@@ -80,24 +80,23 @@ object CompassReader {
             if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
                 // 測定値を控えるだけ。公開（画面の更新）は回転ベクトルの側で 1 秒ごとにまとめて行う
                 val v = event.values
-                magneticStatus = event.accuracy
-                keepPaired(pairer.onField(event.timestamp, v[0], v[1], v[2]))
+                samples.onMagneticStatus(event.accuracy)
+                samples.onMagnetic(
+                    pairer.onField(event.timestamp, v[0], v[1], v[2]),
+                    SystemClock.elapsedRealtimeNanos()
+                )
                 return
             }
 
             // 回転行列は届くたびに求め、鉛直上向き（リマップ前の 3 行目）を磁場と組にする。
             // 間引く前に行うのは、磁場とイベント時刻の近い組を逃さないため
             val values = event.values
-            SensorManager.getRotationMatrixFromVector(rotation, values)
-            keepPaired(pairer.onUp(event.timestamp, rotation[6], rotation[7], rotation[8]))
-
-            // センサーの最低レートが希望より速い端末では、希望より細かく届く
-            // （例: 最低 5 Hz の端末では 1 秒を指定しても 200 ms ごと）。
-            // 使うのは測位時点の最新値だけなので、希望の周期まで間引いて画面の更新を増やさない
             val now = SystemClock.elapsedRealtimeNanos()
-            val minIntervalNs = (registeredPeriodUs ?: 0) * THROTTLE_NS_PER_US
-            if (now - lastAcceptedNs < minIntervalNs) return
-            lastAcceptedNs = now
+            SensorManager.getRotationMatrixFromVector(rotation, values)
+            samples.onMagnetic(
+                pairer.onUp(event.timestamp, rotation[6], rotation[7], rotation[8]),
+                now
+            )
 
             // rotation[7] = 端末の Y 軸（上端方向）の鉛直上向き成分 = なす角の余弦
             val upright = rotation[7] >= MIN_UPRIGHT_COS
@@ -115,37 +114,24 @@ object CompassReader {
                 ?.takeIf { it >= 0f }
                 ?.let { Math.toDegrees(it.toDouble()).toFloat() }
 
-            // 磁場の強さと伏角は、時刻の合う組で測った最新の値。この 1 秒に組が取れていなければ
-            // 前の値を測った時刻ごと持ち越す（3 秒より古くなれば、使う側で「無し」になる）
-            val magnetic = pairedMagnetic
-            _reading.value = CompassReading(
-                azimuthDeg = azimuth,
-                accuracyDeg = accuracy,
-                elapsedRealtimeNs = now,
-                magStrengthUt = magnetic?.strengthUt,
-                magInclinationDeg = magnetic?.inclinationDeg,
-                magElapsedRealtimeNs = pairedNs,
-                magSensorStatus = magneticStatus
-            )
-        }
-
-        /** 時刻の合う組で測れたときだけ、最新の測定値として控える */
-        private fun keepPaired(measurement: MagMeasurement?) {
-            if (measurement == null) return
-            pairedMagnetic = measurement
-            pairedNs = SystemClock.elapsedRealtimeNanos()
+            // 記録用には毎回控える。センサーの最低レートが希望より速い端末では、希望より細かく届く
+            // （例: 最低 5 Hz の端末では 1 秒を指定しても 200 ms ごと）ので、
+            // 画面用は希望の周期まで間引いて更新を増やさない
+            val minIntervalNs = (registeredPeriodUs ?: 0) * THROTTLE_NS_PER_US
+            samples.onRotation(azimuth, accuracy, now, minIntervalNs)?.let { _reading.value = it }
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
             if (sensor?.type == Sensor.TYPE_MAGNETIC_FIELD) {
                 Log.d(TAG, "magnetic field accuracy status: $accuracy")
-                magneticStatus = accuracy
+                samples.onMagneticStatus(accuracy)
                 return
             }
             Log.d(TAG, "compass accuracy status: $accuracy")
             unreliable = accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE
             if (unreliable) {
                 // 次の値を待たずに、今の方位角を無効にする
+                samples.clearAzimuth()
                 _reading.value = _reading.value?.copy(azimuthDeg = null)
             }
         }
@@ -206,11 +192,8 @@ object CompassReader {
         magneticSensor = null
         registeredPeriodUs = null
         unreliable = false
-        lastAcceptedNs = 0L
         pairer.reset()
-        pairedMagnetic = null
-        pairedNs = 0L
-        magneticStatus = null
+        samples.reset()
         // 止めた後に古い値を記録・表示しないよう戻す
         _reading.value = null
     }

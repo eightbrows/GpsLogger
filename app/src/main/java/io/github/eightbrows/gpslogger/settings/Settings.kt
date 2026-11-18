@@ -90,6 +90,7 @@ object Settings {
             LanguageMode.valueOf(prefs.getString(KEY_LANGUAGE_MODE, LanguageMode.SYSTEM.name)!!)
         }.getOrDefault(LanguageMode.SYSTEM)
 
+        _compassEnabled.value = prefs.getBoolean(KEY_COMPASS_ENABLED, false)
         _compassNorth.value = runCatching {
             CompassNorth.valueOf(prefs.getString(KEY_COMPASS_NORTH, CompassNorth.TRUE_NORTH.name)!!)
         }.getOrDefault(CompassNorth.TRUE_NORTH)
@@ -340,6 +341,18 @@ object Settings {
     }
 
     private const val KEY_LANGUAGE_MODE = "language_mode"
+
+    // ---- コンパス（試験機能）。オフならセンサーを購読せず、記録の値は空欄、数値ページに出さない ----
+
+    private val _compassEnabled = MutableStateFlow(false)
+    val compassEnabled: StateFlow<Boolean> = _compassEnabled.asStateFlow()
+
+    fun setCompassEnabled(enabled: Boolean) {
+        _compassEnabled.value = enabled
+        prefs.edit { putBoolean(KEY_COMPASS_ENABLED, enabled) }
+    }
+
+    private const val KEY_COMPASS_ENABLED = "compass_enabled"
 
     // ---- コンパスの基準（数値ページの表示だけに使う。記録には影響しない） ----
 

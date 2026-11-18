@@ -122,6 +122,7 @@ private fun NumericPage(snapshot: ViewSnapshot) {
     val speedEmphasis by Settings.speedEmphasis.collectAsStateWithLifecycle()
     val constellationEmphasis by Settings.constellationEmphasis.collectAsStateWithLifecycle()
     val dopEmphasis by Settings.dopEmphasis.collectAsStateWithLifecycle()
+    val compassEnabled by Settings.compassEnabled.collectAsStateWithLifecycle()
     val compassNorth by Settings.compassNorth.collectAsStateWithLifecycle()
     val appLeapSeconds by Settings.leapSeconds.collectAsStateWithLifecycle()
     // 再生中はそのセッションの meta.json の値、記録中や未設定ならアプリ全体の設定値
@@ -206,19 +207,22 @@ private fun NumericPage(snapshot: ViewSnapshot) {
         )
         // 端末の背面が向いている方位。上の「方位」（GPS の進行方向）とは別物
         // 測った磁場がモデル値から外れているときだけ、方位の後ろに注記を付ける（方位の値は消さない）
-        val disturbedNote = stringResource(R.string.num_compass_disturbed)
-        NumRow(
-            stringResource(R.string.num_compass),
-            Compass.format(
-                snapshot.compassAzimuthDeg,
-                snapshot.compassAccuracyDeg,
-                snapshot.magneticDeclinationDeg,
-                compassNorth,
-                note = disturbedNote.takeIf {
-                    Compass.isDisturbed(snapshot.magFieldRatio, snapshot.magInclinationDiffDeg)
-                }
+        // コンパス（試験機能）がオフなら、ライブ・再生とも行を出さない
+        if (compassEnabled) {
+            val disturbedNote = stringResource(R.string.num_compass_disturbed)
+            NumRow(
+                stringResource(R.string.num_compass),
+                Compass.format(
+                    snapshot.compassAzimuthDeg,
+                    snapshot.compassAccuracyDeg,
+                    snapshot.magneticDeclinationDeg,
+                    compassNorth,
+                    note = disturbedNote.takeIf {
+                        Compass.isDisturbed(snapshot.magFieldRatio, snapshot.magInclinationDiffDeg)
+                    }
+                )
             )
-        )
+        }
 
         NumDivider()
 

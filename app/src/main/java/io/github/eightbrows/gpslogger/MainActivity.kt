@@ -111,6 +111,7 @@ fun RecordControlScreen() {
     val pressureHpa by BarometerReader.pressureHpa.collectAsStateWithLifecycle()
     val basePressureHpa by GnssStateHolder.basePressureHpa.collectAsStateWithLifecycle()
     val compassReading by CompassReader.reading.collectAsStateWithLifecycle()
+    val compassEnabled by Settings.compassEnabled.collectAsStateWithLifecycle()
     val holderSnapshot by GnssStateHolder.snapshot.collectAsStateWithLifecycle()
     val trackPoints by GnssStateHolder.trackPoints.collectAsStateWithLifecycle()
     val currentSession by GnssStateHolder.currentSessionDir.collectAsStateWithLifecycle()
@@ -128,8 +129,8 @@ fun RecordControlScreen() {
     val compassNowNs = android.os.SystemClock.elapsedRealtimeNanos()
     val compass = Compass.usable(compassReading, compassNowNs)
     val location = holderSnapshot.location
-    val magModel = remember(location) {
-        location?.let {
+    val magModel = remember(location, compassEnabled) {
+        location?.takeIf { compassEnabled }?.let {
             CompassReader.model(it.latitude, it.longitude, it.altitude, it.time)
         }
     }
@@ -173,8 +174,8 @@ fun RecordControlScreen() {
     // composition だけに任せると、ホームに戻しても画面を消しても測位が続いてしまう
     val lifecycleOwner = LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(isLogging, lifecycleOwner) {
-        // 気圧・コンパスも同じ条件で購読する。記録中はサービスが購読し、
-        // 一時停止中はどちらも購読しない（表示は「—」）
+        // 気圧も同じ条件で購読する。記録中はサービスが購読し、
+        // 一時停止中は購読しない（表示は「—」）
         fun startIfPossible() {
             val hasPermission = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_FINE_LOCATION
@@ -188,21 +189,14 @@ fun RecordControlScreen() {
                     owner = PreviewLocator,
                     samplingPeriodUs = BarometerReader.DEFAULT_PERIOD_US
                 )
-                CompassReader.start(
-                    context,
-                    owner = PreviewLocator,
-                    samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
-                )
             } else {
                 BarometerReader.stop(owner = PreviewLocator)
-                CompassReader.stop(owner = PreviewLocator)
             }
         }
 
         fun stopAll() {
             PreviewLocator.stop()
             BarometerReader.stop(owner = PreviewLocator)
-            CompassReader.stop(owner = PreviewLocator)
         }
 
         // addObserver は、登録した時点の状態までのイベント（表示中なら ON_START）を
@@ -219,6 +213,30 @@ fun RecordControlScreen() {
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             stopAll()
+        }
+    }
+
+    // コンパスのプレビューの購読。測位と分けて、設定を切り替えても測位を止めずに追従させる。
+    // 記録中はサービスが購読し、オフのときはどこからも購読しない
+    androidx.compose.runtime.DisposableEffect(isLogging, compassEnabled, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> if (!isLogging && compassEnabled) {
+                    CompassReader.start(
+                        context,
+                        owner = PreviewLocator,
+                        samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
+                    )
+                }
+                Lifecycle.Event.ON_STOP -> CompassReader.stop(owner = PreviewLocator)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            CompassReader.stop(owner = PreviewLocator)
         }
     }
 

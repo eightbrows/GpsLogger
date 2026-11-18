@@ -191,8 +191,10 @@
     <string name="settings_geoid_height">Geoid height (m)</string>
     <string name="settings_geoid_height_note">GPX/KMZ altitude = ellipsoidal height − geoid offset. 0 outputs ellipsoidal height (default: 36.0, typical for Japan)</string>
     <string name="settings_geoid_height_hint">%1$s to %2$s m, in 0.1 m steps (default %3$s)</string>
+    <string name="settings_compass_enabled">Compass (experimental)</string>
+    <string name="settings_compass_enabled_note">Records the phone\'s heading and magnetic field indicators. In a car, the heading can be off by about 15° depending on direction, even without a warning. If the heading is off, calibrate by moving the phone in a figure-8.</string>
     <string name="settings_compass_north">Compass reference</string>
-    <string name="settings_compass_north_note">Used for the compass on the numeric page. Recordings keep the magnetic value and declination. If the heading is off, calibrate by moving the phone in a figure-8. Inside a car, the vehicle body may disturb it.</string>
+    <string name="settings_compass_north_note">Used for the compass on the numeric page. Recordings keep the magnetic value and declination.</string>
     <string name="settings_compass_true">True north</string>
     <string name="settings_compass_magnetic">Magnetic north</string>
     <string name="settings_theme">Theme</string>

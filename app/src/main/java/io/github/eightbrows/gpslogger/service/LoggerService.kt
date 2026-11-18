@@ -67,6 +67,9 @@ class LoggerService : Service() {
     private var geoidOffsetAtStart = SessionMeta.DEFAULT_GEOID_OFFSET_M
     private var leapSecondsAtStart = SessionMeta.DEFAULT_LEAP_SECONDS
 
+    /** 記録開始時のコンパス（試験機能）の設定。記録中は切り替わらない */
+    private var compassEnabledAtStart = false
+
     /** 記録開始時の設定間隔（秒）。記録中に設定が変わってもセッション内で固定する */
     private var sessionIntervalSec = 0
     private var fixCount = 0
@@ -90,19 +93,16 @@ class LoggerService : Service() {
         pendingGapBefore = false
         // 測位が来た時点の最新値。CSVと軌跡に同じ値を積む（未取得なら null）
         val pressureHpa = BarometerReader.pressureHpa.value
-        // コンパスも同じく最新値。無効・3 秒より古い値は null（CSV では空欄）
-        val compassNowNs = SystemClock.elapsedRealtimeNanos()
-        val compassReading = CompassReader.reading.value
-        val compass = Compass.usable(compassReading, compassNowNs)
-        // 磁場の強さ・伏角は、端末を寝かせていて方位角が無いときも使える
-        val magnetic = Compass.magMeasurement(compassReading, compassNowNs)
-        // モデル値はどちらかがあるときだけ求める（偏角・強さ・伏角を 1 回で）
-        val magModel = if (compass != null || magnetic != null) {
+        // コンパスは間引く前の最新値。オフ・無効・3 秒より古い値は null（CSV では空欄）
+        val compass = Compass.recordValues(
+            enabled = compassEnabledAtStart,
+            reading = CompassReader.latestForRecording(),
+            nowElapsedNs = SystemClock.elapsedRealtimeNanos()
+        ) {
             CompassReader.model(
                 location.latitude, location.longitude, location.altitude, location.time
             )
-        } else null
-        val magIndex = Compass.magIndex(magnetic, magModel)
+        }
         logWriter?.submit(
             LogEvent.Fix(
                 location = location,
@@ -110,13 +110,7 @@ class LoggerService : Service() {
                 gapBefore = gapBefore,
                 intervalSec = sessionIntervalSec,
                 pressureHpa = pressureHpa,
-                compassAzimuthDeg = compass?.azimuthDeg,
-                compassAccuracyDeg = compass?.accuracyDeg,
-                // 偏角は方位角があるときだけ書く（磁北の生値と組にして保存する）
-                magneticDeclinationDeg = compass?.let { magModel?.declinationDeg },
-                magFieldRatio = magIndex?.ratio,
-                magInclinationDiffDeg = magIndex?.inclinationDiffDeg,
-                magSensorStatus = Compass.magSensorStatus(compassReading, compassNowNs)
+                compass = compass
             )
         )
         GnssStateHolder.updateLocation(location, gapBefore, pressureHpa)
@@ -194,6 +188,7 @@ class LoggerService : Service() {
             segments.clear()
             openSegment(startTimeMs)
             sessionIntervalSec = Settings.intervalSec.value
+            compassEnabledAtStart = Settings.compassEnabled.value
             GnssStateHolder.setRecordingStart(startTimeMs)
 
             startForeground(NOTIFICATION_ID, buildNotification())
@@ -320,12 +315,14 @@ class LoggerService : Service() {
             owner = this,
             samplingPeriodUs = BarometerReader.DEFAULT_PERIOD_US
         )
-        // コンパスも気圧と同じ区間・同じ周期で購読する
-        CompassReader.start(
-            this,
-            owner = this,
-            samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
-        )
+        // コンパスも気圧と同じ区間・同じ周期で購読する。オフの記録では一切購読しない
+        if (compassEnabledAtStart) {
+            CompassReader.start(
+                this,
+                owner = this,
+                samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
+            )
+        }
     }
 
     private fun stopLocationUpdates() {
@@ -426,6 +423,7 @@ class LoggerService : Service() {
         val basePressure = basePressureAtStart
         val geoidOffset = geoidOffsetAtStart
         val leapSeconds = leapSecondsAtStart
+        val compassEnabled = compassEnabledAtStart
 
         Thread({
             try {
@@ -439,6 +437,7 @@ class LoggerService : Service() {
                     distanceM = SessionReader.trackDistanceM(dir),
                     segments = segs,
                     useWakeLock = useWakeLock,
+                    compassEnabled = compassEnabled,
                     deviceModel = Build.MODEL.orEmpty(),
                     osVersion = Build.VERSION.RELEASE.orEmpty(),
                     appVersion = BuildConfig.VERSION_NAME

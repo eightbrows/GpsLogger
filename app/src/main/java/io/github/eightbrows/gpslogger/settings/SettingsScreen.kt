@@ -225,21 +225,47 @@ fun SettingsScreen() {
         // --- ジオイド高（GPX / KMZ の標高換算） ---
         GeoidHeightRow()
 
-        // --- コンパスの基準（数値ページの表示だけに使う） ---
-        val compassNorth by Settings.compassNorth.collectAsStateWithLifecycle()
-        SectionLabel(stringResource(R.string.settings_compass_north), top = 14.dp)
-        SubText(stringResource(R.string.settings_compass_north_note))
-        SegmentedControl(
-            options = CompassNorth.entries,
-            selected = compassNorth,
-            label = {
-                stringResource(
-                    if (it == CompassNorth.TRUE_NORTH) R.string.settings_compass_true
-                    else R.string.settings_compass_magnetic
+        // --- コンパス（試験機能）。記録中は変更できない ---
+        val compassEnabled by Settings.compassEnabled.collectAsStateWithLifecycle()
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_compass_enabled), fontSize = 14.sp)
+                Text(
+                    stringResource(R.string.settings_compass_enabled_note),
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    color = MaterialTheme.colorScheme.outline
                 )
-            },
-            onSelect = { Settings.setCompassNorth(it) }
-        )
+            }
+            Switch(
+                checked = compassEnabled,
+                onCheckedChange = { Settings.setCompassEnabled(it) },
+                enabled = !isLogging,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        // --- コンパスの基準（数値ページの表示だけに使う）。コンパスがオンのときだけ出す ---
+        if (compassEnabled) {
+            val compassNorth by Settings.compassNorth.collectAsStateWithLifecycle()
+            SectionLabel(stringResource(R.string.settings_compass_north), top = 14.dp)
+            SubText(stringResource(R.string.settings_compass_north_note))
+            SegmentedControl(
+                options = CompassNorth.entries,
+                selected = compassNorth,
+                label = {
+                    stringResource(
+                        if (it == CompassNorth.TRUE_NORTH) R.string.settings_compass_true
+                        else R.string.settings_compass_magnetic
+                    )
+                },
+                onSelect = { Settings.setCompassNorth(it) }
+            )
+        }
 
         Divider14()
 
