@@ -53,6 +53,8 @@ data class SessionMeta(
     val useWakeLock: Boolean = false,
     /** この記録でコンパス（試験機能）が有効だったか。項目の無い古い meta.json は false */
     val compassEnabled: Boolean = false,
+    /** 歩数（試験機能）の記録の状態。項目の無い古い meta.json は null（記録なし） */
+    val steps: StepsMeta? = null,
     val deviceModel: String = "",
     val osVersion: String = "",
     val appVersion: String = ""
@@ -82,6 +84,7 @@ data class SessionMeta(
         })
         put("useWakeLock", useWakeLock)
         put("compassEnabled", compassEnabled)
+        put("steps", steps?.toJson() ?: JSONObject.NULL)
         put("deviceModel", deviceModel)
         put("osVersion", osVersion)
         put("appVersion", appVersion)
@@ -160,6 +163,7 @@ data class SessionMeta(
                 } ?: d.segments,
                 useWakeLock = json.opt("useWakeLock") as? Boolean ?: d.useWakeLock,
                 compassEnabled = json.opt("compassEnabled") as? Boolean ?: d.compassEnabled,
+                steps = StepsMeta.fromJson(json.opt("steps")),
                 deviceModel = json.stringOr("deviceModel", d.deviceModel),
                 osVersion = json.stringOr("osVersion", d.osVersion),
                 appVersion = json.stringOr("appVersion", d.appVersion)

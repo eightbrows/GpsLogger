@@ -197,6 +197,9 @@
     <string name="settings_geoid_height_hint">%1$s〜%2$s m、0.1 m 単位（初期値 %3$s）</string>
     <string name="settings_compass_enabled">コンパス（試験機能）</string>
     <string name="settings_compass_enabled_note">端末の向きと磁場の指標を記録します。車内では向きによって15度前後ずれることがあり、注記が無くても正確とは限りません。方位がずれるときは、端末を8の字に振って校正してください</string>
+    <string name="settings_step_enabled">歩数（試験機能）</string>
+    <string name="settings_step_enabled_note">端末の歩数センサーの記録を取ります。権限欄で身体活動の許可が必要です</string>
+    <string name="settings_step_no_permission">身体活動の権限が許可されていないため、歩数は記録されません</string>
     <string name="settings_compass_north">コンパスの基準</string>
     <string name="settings_compass_north_note">数値ページのコンパス表示に使います。記録には磁北の値と偏角を保存します</string>
     <string name="settings_compass_true">真北</string>
@@ -229,6 +232,8 @@
     <string name="perm_background_location_desc">画面を閉じても記録を続けるために必要です</string>
     <string name="perm_notifications">通知</string>
     <string name="perm_notifications_desc">記録中であることを通知領域に表示します</string>
+    <string name="perm_activity_recognition">身体活動（任意）</string>
+    <string name="perm_activity_recognition_desc">歩数（試験機能）の記録に使います</string>
 
     <!-- 軌跡色の名前 -->
     <string name="color_white">白</string>

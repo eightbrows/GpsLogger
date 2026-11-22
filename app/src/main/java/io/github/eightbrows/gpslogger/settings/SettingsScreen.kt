@@ -267,6 +267,9 @@ fun SettingsScreen() {
             )
         }
 
+        // --- 歩数（試験機能）。記録中は変更できない ---
+        StepsRow(isLogging)
+
         Divider14()
 
         // --- テーマ ---
@@ -322,6 +325,64 @@ fun SettingsScreen() {
 
         Box(Modifier.height(16.dp))
     }
+}
+
+/**
+ * 歩数（試験機能）のスイッチ。権限はここでは要求しない（権限欄の行から許可してもらう）。
+ * オンで権限が無いときは、記録されないことを知らせる
+ */
+@Composable
+private fun StepsRow(isLogging: Boolean) {
+    val stepEnabled by Settings.stepEnabled.collectAsStateWithLifecycle()
+    val permissionGranted = rememberPermissionGranted(AppPermission.ACTIVITY_RECOGNITION)
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.settings_step_enabled), fontSize = 14.sp)
+            Text(
+                stringResource(R.string.settings_step_enabled_note),
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.outline
+            )
+            if (stepEnabled && !permissionGranted) {
+                Text(
+                    stringResource(R.string.settings_step_no_permission),
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+        Switch(
+            checked = stepEnabled,
+            onCheckedChange = { Settings.setStepEnabled(it) },
+            enabled = !isLogging,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
+}
+
+/** 権限が許可されているか。画面に戻るたび（許可のダイアログやアプリ設定から戻ったとき）に確認し直す */
+@Composable
+private fun rememberPermissionGranted(permission: AppPermission): Boolean {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var granted by remember { mutableStateOf(PermissionUtil.isGranted(context, permission)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = PermissionUtil.isGranted(context, permission)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return granted
 }
 
 // ==================== 共通部品 ====================

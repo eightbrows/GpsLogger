@@ -83,6 +83,31 @@ object MetaPaths {
         }
         rows += "useWakeLock" to meta.useWakeLock.toString()
         rows += "compassEnabled" to meta.compassEnabled.toString()
+        val steps = meta.steps
+        if (steps == null) {
+            rows += "steps" to null
+        } else {
+            rows += "steps.enabled" to steps.enabled.toString()
+            rows += "steps.permissionGranted" to steps.permissionGranted.toString()
+            rows += "steps.status" to steps.status
+            rows += "steps.requestedMaxReportLatencyUs" to steps.requestedMaxReportLatencyUs.toString()
+            for ((key, s) in listOf("detector" to steps.detector, "counter" to steps.counter)) {
+                val p = "steps.$key"
+                rows += "$p.present" to s.present.toString()
+                rows += "$p.used" to s.used.toString()
+                rows += "$p.name" to s.name
+                rows += "$p.vendor" to s.vendor
+                rows += "$p.version" to s.version?.toString()
+                rows += "$p.wakeUp" to s.wakeUp?.toString()
+                rows += "$p.reportingMode" to s.reportingMode?.toString()
+                rows += "$p.minDelayUs" to s.minDelayUs?.toString()
+                rows += "$p.maxDelayUs" to s.maxDelayUs?.toString()
+                rows += "$p.fifoReservedEventCount" to s.fifoReservedEventCount?.toString()
+                rows += "$p.fifoMaxEventCount" to s.fifoMaxEventCount?.toString()
+                rows += "$p.events" to s.events.toString()
+                rows += "$p.timebaseAnomalies" to s.timebaseAnomalies.toString()
+            }
+        }
         rows += "deviceModel" to meta.deviceModel
         rows += "osVersion" to meta.osVersion
         rows += "appVersion" to meta.appVersion

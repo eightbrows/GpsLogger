@@ -3,6 +3,7 @@ package io.github.eightbrows.gpslogger.log
 import android.location.Location
 import io.github.eightbrows.gpslogger.calc.CompassRecord
 import io.github.eightbrows.gpslogger.calc.Dop
+import io.github.eightbrows.gpslogger.calc.StepSample
 
 sealed interface LogEvent {
     data class Fix(
@@ -17,6 +18,9 @@ sealed interface LogEvent {
         /** コンパス関連の 6 列の値。コンパスがオフの記録ではすべて空欄 */
         val compass: CompassRecord = CompassRecord.EMPTY
     ) : LogEvent
+
+    /** 歩数センサーの 1 件（steps.csv の 1 行） */
+    data class Step(val sample: StepSample) : LogEvent
 
     data class Sats(
         val epochId: Long,

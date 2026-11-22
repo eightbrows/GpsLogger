@@ -13,6 +13,9 @@
     <!-- 通知（記録中インジケータ） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 身体活動（歩数の試験機能。設定の権限欄から任意で許可する） -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
     <!-- WakeLock（設定でON時のみ使用） -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

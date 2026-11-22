@@ -91,6 +91,7 @@ object Settings {
         }.getOrDefault(LanguageMode.SYSTEM)
 
         _compassEnabled.value = prefs.getBoolean(KEY_COMPASS_ENABLED, false)
+        _stepEnabled.value = prefs.getBoolean(KEY_STEP_ENABLED, false)
         _compassNorth.value = runCatching {
             CompassNorth.valueOf(prefs.getString(KEY_COMPASS_NORTH, CompassNorth.TRUE_NORTH.name)!!)
         }.getOrDefault(CompassNorth.TRUE_NORTH)
@@ -353,6 +354,18 @@ object Settings {
     }
 
     private const val KEY_COMPASS_ENABLED = "compass_enabled"
+
+    // ---- 歩数（試験機能）。オンで権限とセンサーがあれば、記録中だけ歩数センサーを記録する ----
+
+    private val _stepEnabled = MutableStateFlow(false)
+    val stepEnabled: StateFlow<Boolean> = _stepEnabled.asStateFlow()
+
+    fun setStepEnabled(enabled: Boolean) {
+        _stepEnabled.value = enabled
+        prefs.edit { putBoolean(KEY_STEP_ENABLED, enabled) }
+    }
+
+    private const val KEY_STEP_ENABLED = "step_enabled"
 
     // ---- コンパスの基準（数値ページの表示だけに使う。記録には影響しない） ----
 

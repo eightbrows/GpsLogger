@@ -642,10 +642,6 @@ private data class ImportResult(
     @param:StringRes val error: Int? = null
 )
 
-/** エントリ名の許可パターン（これ以外は全て拒否） */
-private val ENTRY_PATTERN =
-    Regex("^(session_\\d{8}_\\d{6})/(track\\.csv|sats\\.csv|meta\\.json|track\\.gpx|track\\.kmz)$")
-
 private fun importZip(
     context: android.content.Context,
     uri: android.net.Uri
@@ -662,7 +658,7 @@ private fun importZip(
             ZipInputStream(BufferedInputStream(input)).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
-                    val match = ENTRY_PATTERN.matchEntire(entry.name)
+                    val match = SessionZip.ENTRY_PATTERN.matchEntire(entry.name)
                     if (match == null || entry.isDirectory) {
                         skipped++
                     } else {

@@ -29,6 +29,14 @@ import io.github.eightbrows.gpslogger.settings.Settings
 import io.github.eightbrows.gpslogger.state.GnssStateHolder
 import io.github.eightbrows.gpslogger.state.BarometerReader
 import io.github.eightbrows.gpslogger.state.CompassReader
+import io.github.eightbrows.gpslogger.state.StepRecorder
+import io.github.eightbrows.gpslogger.calc.StepSensorType
+import io.github.eightbrows.gpslogger.calc.Steps
+import io.github.eightbrows.gpslogger.calc.StepsPlan
+import io.github.eightbrows.gpslogger.calc.StepsStatus
+import io.github.eightbrows.gpslogger.session.StepsMeta
+import io.github.eightbrows.gpslogger.settings.AppPermission
+import io.github.eightbrows.gpslogger.settings.PermissionUtil
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,6 +77,12 @@ class LoggerService : Service() {
 
     /** 記録開始時のコンパス（試験機能）の設定。記録中は切り替わらない */
     private var compassEnabledAtStart = false
+
+    /** 記録開始時の歩数（試験機能）の設定と権限、購読の計画。記録中は切り替わらない */
+    private var stepEnabledAtStart = false
+    private var stepPermissionAtStart = false
+    private var stepsPlan = StepsPlan(StepsStatus.DISABLED)
+    private var stepRecorder: StepRecorder? = null
 
     /** 記録開始時の設定間隔（秒）。記録中に設定が変わってもセッション内で固定する */
     private var sessionIntervalSec = 0
@@ -189,6 +203,16 @@ class LoggerService : Service() {
             openSegment(startTimeMs)
             sessionIntervalSec = Settings.intervalSec.value
             compassEnabledAtStart = Settings.compassEnabled.value
+            // 歩数: 設定がオフ・権限が無い・使えるセンサーが無い記録では購読せず、steps.csv も作らない
+            stepEnabledAtStart = Settings.stepEnabled.value
+            stepPermissionAtStart = PermissionUtil.isGranted(this, AppPermission.ACTIVITY_RECOGNITION)
+            val recorder = StepRecorder(this)
+            stepsPlan = Steps.plan(
+                stepEnabledAtStart, stepPermissionAtStart, recorder.detectorSpec, recorder.counterSpec
+            )
+            recorder.onSample = { logWriter?.submit(LogEvent.Step(it)) }
+            stepRecorder = recorder
+            Log.d(TAG, "steps: ${stepsPlan.status.jsonName}")
             GnssStateHolder.setRecordingStart(startTimeMs)
 
             startForeground(NOTIFICATION_ID, buildNotification())
@@ -209,7 +233,7 @@ class LoggerService : Service() {
             val sessionDir = File(baseDir, sessionName)
             GnssStateHolder.setCurrentSession(sessionDir)
             this.sessionDir = sessionDir
-            logWriter = LogWriter(sessionDir) { error, detail ->
+            logWriter = LogWriter(sessionDir, recordSteps = stepsPlan.record) { error, detail ->
                 GnssStateHolder.setLoggingError(writeErrorMessage(error, detail))
             }.also { it.start() }
             satEpochId = 0L
@@ -323,6 +347,8 @@ class LoggerService : Service() {
                 samplingPeriodUs = CompassReader.DEFAULT_PERIOD_US
             )
         }
+        // 歩数も同じ区間だけ購読する（一時停止で解除、再開で再登録）
+        stepRecorder?.start(stepsPlan)
     }
 
     private fun stopLocationUpdates() {
@@ -331,6 +357,7 @@ class LoggerService : Service() {
         locationManager.unregisterGnssStatusCallback(gnssStatusCallback)
         BarometerReader.stop(owner = this)
         CompassReader.stop(owner = this)
+        stepRecorder?.stop()
         updatesActive = false
     }
 
@@ -424,6 +451,19 @@ class LoggerService : Service() {
         val geoidOffset = geoidOffsetAtStart
         val leapSeconds = leapSecondsAtStart
         val compassEnabled = compassEnabledAtStart
+        val recorder = stepRecorder
+        val plan = stepsPlan
+        val steps = StepsMeta(
+            enabled = stepEnabledAtStart,
+            permissionGranted = stepPermissionAtStart,
+            status = plan.status.jsonName,
+            requestedMaxReportLatencyUs = Steps.MAX_REPORT_LATENCY_US,
+            detector = recorder?.sensorMeta(StepSensorType.DETECTOR, plan.useDetector)
+                ?: StepsMeta().detector,
+            counter = recorder?.sensorMeta(StepSensorType.COUNTER, plan.useCounter)
+                ?: StepsMeta().counter
+        )
+        stepRecorder = null
 
         Thread({
             try {
@@ -438,6 +478,7 @@ class LoggerService : Service() {
                     segments = segs,
                     useWakeLock = useWakeLock,
                     compassEnabled = compassEnabled,
+                    steps = steps,
                     deviceModel = Build.MODEL.orEmpty(),
                     osVersion = Build.VERSION.RELEASE.orEmpty(),
                     appVersion = BuildConfig.VERSION_NAME

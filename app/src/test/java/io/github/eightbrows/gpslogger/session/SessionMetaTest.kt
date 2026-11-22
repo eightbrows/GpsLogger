@@ -169,7 +169,7 @@ class SessionMetaTest {
             "segments[0].basePressureHpa", "segments[0].geoidOffsetM",
             "segments[1].start", "segments[1].end", "segments[1].points",
             "segments[1].basePressureHpa", "segments[1].geoidOffsetM",
-            "useWakeLock", "compassEnabled", "deviceModel", "osVersion", "appVersion"
+            "useWakeLock", "compassEnabled", "steps", "deviceModel", "osVersion", "appVersion"
         )
         assertEquals(expected, MetaPaths.flatten(sample).map { it.path })
     }

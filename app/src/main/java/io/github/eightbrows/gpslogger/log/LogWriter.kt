@@ -3,6 +3,7 @@ package io.github.eightbrows.gpslogger.log
 import android.location.GnssStatus
 import android.util.Log
 import io.github.eightbrows.gpslogger.calc.Compass
+import io.github.eightbrows.gpslogger.calc.Steps
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -14,6 +15,8 @@ import java.util.concurrent.TimeUnit
 
 class LogWriter(
     private val sessionDir: File,
+    /** steps.csv を作るか（歩数を記録するセッションだけ true） */
+    private val recordSteps: Boolean = false,
     private val onError: ((WriteError, String?) -> Unit)? = null
 ) {
 
@@ -73,6 +76,10 @@ class LogWriter(
 
         val trackWriter = BufferedWriter(FileWriter(trackFile, true), BUFFER_SIZE)
         val satsWriter = BufferedWriter(FileWriter(satsFile, true), BUFFER_SIZE)
+        // 歩数を記録しないセッションでは steps.csv を作らない
+        val stepsFile = File(sessionDir, Steps.FILE_NAME)
+        val stepsWriter =
+            if (recordSteps) BufferedWriter(FileWriter(stepsFile, true), BUFFER_SIZE) else null
 
         try {
             if (trackFile.length() == 0L) {
@@ -80,6 +87,9 @@ class LogWriter(
             }
             if (satsFile.length() == 0L) {
                 satsWriter.write(SATS_HEADER); satsWriter.newLine()
+            }
+            if (stepsWriter != null && stepsFile.length() == 0L) {
+                stepsWriter.write(Steps.HEADER); stepsWriter.newLine()
             }
 
             var lastFlush = System.currentTimeMillis()
@@ -89,6 +99,9 @@ class LogWriter(
                 when (event) {
                     is LogEvent.Fix -> writeFix(trackWriter, event)
                     is LogEvent.Sats -> writeSats(satsWriter, event)
+                    is LogEvent.Step -> stepsWriter?.let {
+                        it.write(Steps.csvLine(event.sample)); it.newLine()
+                    }
                     null -> { /* タイムアウト。flush判定へ */ }
                 }
 
@@ -99,6 +112,7 @@ class LogWriter(
                     flushRequested = false
                     trackWriter.flush()
                     satsWriter.flush()
+                    stepsWriter?.flush()
                     lastFlush = now
                     Log.d(TAG, if (onDemand) "flushed (on demand)" else "flushed")
                 }
@@ -111,6 +125,10 @@ class LogWriter(
                 .onFailure { onError?.invoke(WriteError.CLOSE, null) }
             runCatching { satsWriter.flush(); satsWriter.close() }
                 .onFailure { onError?.invoke(WriteError.CLOSE, null) }
+            if (stepsWriter != null) {
+                runCatching { stepsWriter.flush(); stepsWriter.close() }
+                    .onFailure { onError?.invoke(WriteError.CLOSE, null) }
+            }
             Log.d(TAG, "writer closed (final flush done)")
         }
     }

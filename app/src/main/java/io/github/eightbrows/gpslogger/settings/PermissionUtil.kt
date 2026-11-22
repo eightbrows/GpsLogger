@@ -40,6 +40,18 @@ enum class AppPermission(
         "android.permission.POST_NOTIFICATIONS",
         Build.VERSION_CODES.TIRAMISU,
         true
+    ),
+
+    /**
+     * 身体活動（歩数の試験機能）。任意の権限で、権限欄の行をタップしたときだけ要求する。
+     * 記録の開始可否・初回の案内には含めない（[PermissionUtil.REQUIRED_FOR_LOGGING]）
+     */
+    ACTIVITY_RECOGNITION(
+        R.string.perm_activity_recognition,
+        R.string.perm_activity_recognition_desc,
+        "android.permission.ACTIVITY_RECOGNITION",
+        Build.VERSION_CODES.Q,
+        true
     );
 
     /** この端末で必要な権限か */
@@ -54,9 +66,15 @@ object PermissionUtil {
                 PackageManager.PERMISSION_GRANTED
     }
 
+    /**
+     * 記録に最低限必要な権限。記録の開始可否と、初回起動時の権限の案内に使う。
+     * 任意の権限（身体活動など）は含めない
+     */
+    val REQUIRED_FOR_LOGGING: List<AppPermission> = listOf(AppPermission.FINE_LOCATION)
+
     /** 記録に最低限必要な権限が揃っているか */
     fun hasRequiredForLogging(context: Context): Boolean =
-        isGranted(context, AppPermission.FINE_LOCATION)
+        REQUIRED_FOR_LOGGING.all { isGranted(context, it) }
 
     /** アプリのシステム設定画面を開く */
     fun openAppSettings(context: Context) {
