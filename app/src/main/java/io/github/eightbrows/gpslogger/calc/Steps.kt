@@ -60,6 +60,31 @@ data class StepsPlan(
     val record: Boolean get() = status == StepsStatus.RECORDED
 }
 
+/**
+ * 時刻基準の異常の判定。counter は購読を始めるたびに、その時点の累計（基準値）を 1 件送ってくる。
+ * その時刻は「最後に歩数が変わった時刻」で購読の開始より数分前のこともあるため、
+ * 登録ごとの最初の counter の 1 件は異常として数えない。detector と 2 件目以降の counter は
+ * [Steps.isTimebaseAnomaly] のとおり
+ */
+class StepTimebaseCheck {
+    /** 今の登録で、まだ counter を 1 件も受け取っていないか */
+    private var counterBaselinePending = true
+
+    /** センサーを登録した（記録開始時・一時停止からの再開時）。次の counter の 1 件を基準値として扱う */
+    fun onRegistered() {
+        counterBaselinePending = true
+    }
+
+    /** 受け取った 1 件を時刻基準の異常として数えるか */
+    fun isAnomaly(type: StepSensorType, eventElapsedNs: Long, recvElapsedNs: Long): Boolean {
+        if (type == StepSensorType.COUNTER && counterBaselinePending) {
+            counterBaselinePending = false
+            return false
+        }
+        return Steps.isTimebaseAnomaly(eventElapsedNs, recvElapsedNs)
+    }
+}
+
 /** 歩数（試験機能）の判定と書式。Android に依存しない（単体テストできる）部分をまとめる */
 object Steps {
 

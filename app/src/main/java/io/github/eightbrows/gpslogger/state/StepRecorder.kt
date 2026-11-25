@@ -10,6 +10,7 @@ import android.util.Log
 import io.github.eightbrows.gpslogger.calc.StepSample
 import io.github.eightbrows.gpslogger.calc.StepSensorSpec
 import io.github.eightbrows.gpslogger.calc.StepSensorType
+import io.github.eightbrows.gpslogger.calc.StepTimebaseCheck
 import io.github.eightbrows.gpslogger.calc.Steps
 import io.github.eightbrows.gpslogger.calc.StepsPlan
 import io.github.eightbrows.gpslogger.session.StepSensorMeta
@@ -41,6 +42,9 @@ class StepRecorder(context: Context) {
     private val events = LongArray(StepSensorType.entries.size)
     private val anomalies = LongArray(StepSensorType.entries.size)
 
+    /** 時刻基準の異常の判定（登録ごとの counter の基準値は数えない） */
+    private val timebaseCheck = StepTimebaseCheck()
+
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val recvNs = SystemClock.elapsedRealtimeNanos()
@@ -54,7 +58,7 @@ class StepRecorder(context: Context) {
                 type, event.timestamp, recvNs, recvEpochMs, event.values.getOrElse(0) { 0f }
             )
             events[type.ordinal]++
-            if (Steps.isTimebaseAnomaly(event.timestamp, recvNs)) {
+            if (timebaseCheck.isAnomaly(type, event.timestamp, recvNs)) {
                 anomalies[type.ordinal]++
                 // 毎歩出さないよう、最初の数件だけ詳しく出す（件数は meta.json に残る）
                 if (anomalies[type.ordinal] <= ANOMALY_LOG_LIMIT) {
@@ -75,6 +79,8 @@ class StepRecorder(context: Context) {
     fun start(plan: StepsPlan) {
         if (!plan.record || registered) return
         val sm = sensorManager ?: return
+        // 登録し直すたびに counter は基準値を送ってくるので、その 1 件を異常の判定から外す
+        timebaseCheck.onRegistered()
         if (plan.useDetector) detector?.let { register(sm, it) }
         if (plan.useCounter) counter?.let { register(sm, it) }
         registered = true
